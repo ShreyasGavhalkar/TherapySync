@@ -1,0 +1,6 @@
+{
+  "name": "@therapysync/tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "files": ["base.json", "api.json", "expo.json", "shared.json"]
+}

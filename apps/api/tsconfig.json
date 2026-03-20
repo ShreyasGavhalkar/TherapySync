@@ -1,0 +1,10 @@
+{
+  "extends": "@therapysync/tsconfig/api.json",
+  "include": ["src"],
+  "compilerOptions": {
+    "outDir": "dist",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
+}

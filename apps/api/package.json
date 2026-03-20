@@ -1,0 +1,37 @@
+{
+  "name": "@therapysync/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup src/index.ts --format esm --dts",
+    "start": "node dist/index.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clerk/backend": "^1.17.0",
+    "@therapysync/shared": "workspace:*",
+    "date-fns": "^4.1.0",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.38.0",
+    "expo-server-sdk": "^6.1.0",
+    "hono": "^4.6.0",
+    "postgres": "^3.4.5",
+    "resend": "^6.9.4",
+    "svix": "^1.44.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@therapysync/tsconfig": "workspace:*",
+    "@types/node": "^22.10.0",
+    "drizzle-kit": "^0.30.0",
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
