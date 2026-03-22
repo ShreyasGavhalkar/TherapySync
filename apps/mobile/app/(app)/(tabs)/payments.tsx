@@ -1,9 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
 import { FlatList, RefreshControl } from "react-native";
+import { useRouter } from "expo-router";
 import { H4, Paragraph, XStack, YStack, Spinner } from "tamagui";
-import { Card, Badge } from "@therapysync/ui";
-import { useApiClient } from "@/lib/api";
-import type { Payment } from "@therapysync/shared";
+import { Card, Badge, Button } from "@therapysync/ui";
+import { usePayments, usePaymentSummary } from "@/hooks/usePayments";
+import { useAuthStore } from "@/lib/auth-store";
 import { useState } from "react";
 
 const statusColors = {
@@ -22,17 +22,13 @@ function formatCurrency(cents: number, currency = "USD") {
 }
 
 export default function PaymentsScreen() {
-	const api = useApiClient();
+	const router = useRouter();
+	const role = useAuthStore((s) => s.dbUser?.role);
 	const [refreshing, setRefreshing] = useState(false);
+	const isTherapist = role === "therapist" || role === "admin";
 
-	const {
-		data: paymentsList,
-		isLoading,
-		refetch,
-	} = useQuery({
-		queryKey: ["payments"],
-		queryFn: () => api.get<Payment[]>("/payments"),
-	});
+	const { data: paymentsList, isLoading, refetch } = usePayments();
+	const { data: summary } = usePaymentSummary();
 
 	const onRefresh = async () => {
 		setRefreshing(true);
@@ -48,6 +44,10 @@ export default function PaymentsScreen() {
 		);
 	}
 
+	const paidTotal = summary?.find((s) => s.status === "paid")?.totalCents ?? 0;
+	const pendingTotal = summary?.find((s) => s.status === "pending")?.totalCents ?? 0;
+	const overdueTotal = summary?.find((s) => s.status === "overdue")?.totalCents ?? 0;
+
 	return (
 		<YStack flex={1} backgroundColor="$background">
 			<FlatList
@@ -55,6 +55,40 @@ export default function PaymentsScreen() {
 				keyExtractor={(item) => item.id}
 				contentContainerStyle={{ padding: 16, gap: 12 }}
 				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+				ListHeaderComponent={
+					<YStack gap="$3" marginBottom="$2">
+						{summary && summary.length > 0 && (
+							<Card>
+								<H4 marginBottom="$2">Summary</H4>
+								<XStack justifyContent="space-between">
+									<YStack alignItems="center" flex={1}>
+										<Paragraph color="$green10" fontWeight="700" fontSize="$5">
+											{formatCurrency(paidTotal)}
+										</Paragraph>
+										<Paragraph color="$gray10" fontSize="$2">Paid</Paragraph>
+									</YStack>
+									<YStack alignItems="center" flex={1}>
+										<Paragraph color="$orange10" fontWeight="700" fontSize="$5">
+											{formatCurrency(pendingTotal)}
+										</Paragraph>
+										<Paragraph color="$gray10" fontSize="$2">Pending</Paragraph>
+									</YStack>
+									<YStack alignItems="center" flex={1}>
+										<Paragraph color="$red10" fontWeight="700" fontSize="$5">
+											{formatCurrency(overdueTotal)}
+										</Paragraph>
+										<Paragraph color="$gray10" fontSize="$2">Overdue</Paragraph>
+									</YStack>
+								</XStack>
+							</Card>
+						)}
+						{isTherapist && (
+							<Button variant="primary" onPress={() => router.push("/(app)/payment/create")}>
+								Record Payment
+							</Button>
+						)}
+					</YStack>
+				}
 				ListEmptyComponent={
 					<YStack padding="$6" alignItems="center">
 						<Paragraph color="$gray10">No payments</Paragraph>

@@ -1,0 +1,4 @@
+{
+  "extends": "@therapysync/tsconfig/expo.json",
+  "include": ["src"]
+}

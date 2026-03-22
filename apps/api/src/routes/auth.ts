@@ -34,6 +34,7 @@ auth.post("/webhook", async (c) => {
 			last_name: string | null;
 			image_url: string | null;
 			phone_numbers: Array<{ phone_number: string }>;
+			unsafe_metadata?: { role?: string; phone?: string };
 		};
 	};
 
@@ -48,9 +49,12 @@ auth.post("/webhook", async (c) => {
 	}
 
 	if (event.type === "user.created") {
-		const { id, email_addresses, first_name, last_name, image_url, phone_numbers } = event.data;
+		const { id, email_addresses, first_name, last_name, image_url, phone_numbers, unsafe_metadata } = event.data;
 		const email = email_addresses[0]?.email_address;
 		if (!email) return c.json({ error: "No email" }, 400);
+
+		const role = unsafe_metadata?.role === "therapist" ? "therapist" : "client";
+		const phone = unsafe_metadata?.phone ?? phone_numbers[0]?.phone_number ?? null;
 
 		const [newUser] = await db
 			.insert(users)
@@ -59,9 +63,9 @@ auth.post("/webhook", async (c) => {
 				email,
 				firstName: first_name ?? "",
 				lastName: last_name ?? "",
-				phone: phone_numbers[0]?.phone_number ?? null,
+				phone,
 				avatarUrl: image_url,
-				role: "client", // Default role, admin upgrades later
+				role,
 			})
 			.returning({ id: users.id });
 

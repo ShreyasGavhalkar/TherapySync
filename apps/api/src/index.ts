@@ -14,6 +14,9 @@ import homework from "./routes/homework.js";
 import paymentsRouter from "./routes/payments.js";
 import files from "./routes/files.js";
 import pushTokensRouter from "./routes/push-tokens.js";
+import notifPrefs from "./routes/notification-preferences.js";
+import reviewsRouter from "./routes/reviews.js";
+import discover from "./routes/discover.js";
 import cron from "./routes/cron.js";
 
 const app = new Hono().basePath("/api/v1");
@@ -26,6 +29,7 @@ app.use(
 		origin: [
 			"http://localhost:8081", // Expo dev
 			"http://localhost:19006", // Expo web
+			"http://localhost:3001", // Next.js web
 		],
 		credentials: true,
 	}),
@@ -34,13 +38,17 @@ app.use(
 // Routes
 app.route("/auth", auth);
 app.route("/admin", admin);
-app.route("/therapist/clients", clients);
+app.route("/therapist/clients", clients); // therapist-facing
+app.route("/relationships", clients); // client-facing (same handler, role-aware)
 app.route("/sessions", sessionsRouter);
 app.route("/sessions", notes); // /sessions/:id/notes
 app.route("/homework", homework);
 app.route("/payments", paymentsRouter);
 app.route("/files", files);
 app.route("/push-tokens", pushTokensRouter);
+app.route("/notification-preferences", notifPrefs);
+app.route("/reviews", reviewsRouter);
+app.route("/discover", discover);
 app.route("/cron", cron);
 
 // Health check
@@ -58,10 +66,10 @@ app.onError((err, c) => {
 	return c.json({ error: "Internal server error" }, 500);
 });
 
-const port = Number(process.env.PORT ?? 3000);
-console.log(`TherapySync API running on port ${port}`);
+import { serve } from "@hono/node-server";
 
-export default {
-	port,
-	fetch: app.fetch,
-};
+const port = Number(process.env.PORT ?? 3000);
+
+serve({ fetch: app.fetch, port }, () => {
+	console.log(`TherapySync API running on http://localhost:${port}`);
+});

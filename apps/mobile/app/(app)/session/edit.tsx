@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { Alert, Platform, ScrollView, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { addHours } from "date-fns";
+import { addHours, format, set } from "date-fns";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { H3, Paragraph, YStack, Spinner } from "tamagui";
+import { H3, Paragraph, XStack, YStack, Spinner } from "tamagui";
 import { Button, Input } from "@therapysync/ui";
 import { useSessionDetail, useUpdateSession } from "@/hooks/useSessions";
-import { format } from "date-fns";
 
 export default function EditSessionScreen() {
 	const { id } = useLocalSearchParams<{ id: string }>();
@@ -19,8 +18,10 @@ export default function EditSessionScreen() {
 	const [startTime, setStartTime] = useState(new Date());
 	const [endTime, setEndTime] = useState(new Date());
 	const [location, setLocation] = useState("");
-	const [showStartPicker, setShowStartPicker] = useState(false);
-	const [showEndPicker, setShowEndPicker] = useState(false);
+	const [showStartDate, setShowStartDate] = useState(false);
+	const [showStartTime, setShowStartTime] = useState(false);
+	const [showEndDate, setShowEndDate] = useState(false);
+	const [showEndTime, setShowEndTime] = useState(false);
 
 	useEffect(() => {
 		if (session) {
@@ -56,12 +57,8 @@ export default function EditSessionScreen() {
 				},
 			},
 			{
-				onSuccess: () => {
-					router.back();
-				},
-				onError: (err) => {
-					Alert.alert("Error", err.message);
-				},
+				onSuccess: () => router.back(),
+				onError: (err) => Alert.alert("Error", err.message),
 			},
 		);
 	};
@@ -77,26 +74,48 @@ export default function EditSessionScreen() {
 				</YStack>
 
 				<YStack gap="$2">
-					<Paragraph fontWeight="600">Start Time</Paragraph>
-					<Pressable onPress={() => setShowStartPicker(true)}>
-						<Input
-							value={format(startTime, "MMM d, yyyy  h:mm a")}
-							editable={false}
-							pointerEvents="none"
-						/>
-					</Pressable>
-					{showStartPicker && (
+					<Paragraph fontWeight="600">Start</Paragraph>
+					<XStack gap="$2">
+						<Pressable onPress={() => setShowStartDate(true)} style={{ flex: 1 }}>
+							<Input
+								value={format(startTime, "dd/MM/yyyy")}
+								editable={false}
+								pointerEvents="none"
+							/>
+						</Pressable>
+						<Pressable onPress={() => setShowStartTime(true)} style={{ flex: 1 }}>
+							<Input
+								value={format(startTime, "h:mm a")}
+								editable={false}
+								pointerEvents="none"
+							/>
+						</Pressable>
+					</XStack>
+					{showStartDate && (
 						<DateTimePicker
 							value={startTime}
-							mode="datetime"
+							mode="date"
 							display={Platform.OS === "ios" ? "spinner" : "default"}
 							onChange={(_, date) => {
-								setShowStartPicker(Platform.OS === "ios");
+								setShowStartDate(Platform.OS === "ios");
+								if (date) {
+									const merged = set(date, { hours: startTime.getHours(), minutes: startTime.getMinutes() });
+									setStartTime(merged);
+									if (merged >= endTime) setEndTime(addHours(merged, 1));
+								}
+							}}
+						/>
+					)}
+					{showStartTime && (
+						<DateTimePicker
+							value={startTime}
+							mode="time"
+							display={Platform.OS === "ios" ? "spinner" : "default"}
+							onChange={(_, date) => {
+								setShowStartTime(Platform.OS === "ios");
 								if (date) {
 									setStartTime(date);
-									if (date >= endTime) {
-										setEndTime(addHours(date, 1));
-									}
+									if (date >= endTime) setEndTime(addHours(date, 1));
 								}
 							}}
 						/>
@@ -104,21 +123,41 @@ export default function EditSessionScreen() {
 				</YStack>
 
 				<YStack gap="$2">
-					<Paragraph fontWeight="600">End Time</Paragraph>
-					<Pressable onPress={() => setShowEndPicker(true)}>
-						<Input
-							value={format(endTime, "MMM d, yyyy  h:mm a")}
-							editable={false}
-							pointerEvents="none"
-						/>
-					</Pressable>
-					{showEndPicker && (
+					<Paragraph fontWeight="600">End</Paragraph>
+					<XStack gap="$2">
+						<Pressable onPress={() => setShowEndDate(true)} style={{ flex: 1 }}>
+							<Input
+								value={format(endTime, "dd/MM/yyyy")}
+								editable={false}
+								pointerEvents="none"
+							/>
+						</Pressable>
+						<Pressable onPress={() => setShowEndTime(true)} style={{ flex: 1 }}>
+							<Input
+								value={format(endTime, "h:mm a")}
+								editable={false}
+								pointerEvents="none"
+							/>
+						</Pressable>
+					</XStack>
+					{showEndDate && (
 						<DateTimePicker
 							value={endTime}
-							mode="datetime"
+							mode="date"
 							display={Platform.OS === "ios" ? "spinner" : "default"}
 							onChange={(_, date) => {
-								setShowEndPicker(Platform.OS === "ios");
+								setShowEndDate(Platform.OS === "ios");
+								if (date) setEndTime(set(date, { hours: endTime.getHours(), minutes: endTime.getMinutes() }));
+							}}
+						/>
+					)}
+					{showEndTime && (
+						<DateTimePicker
+							value={endTime}
+							mode="time"
+							display={Platform.OS === "ios" ? "spinner" : "default"}
+							onChange={(_, date) => {
+								setShowEndTime(Platform.OS === "ios");
 								if (date) setEndTime(date);
 							}}
 						/>

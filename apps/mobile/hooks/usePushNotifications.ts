@@ -21,7 +21,7 @@ export function usePushNotifications() {
 	const tokenRef = useRef<string | null>(null);
 
 	useEffect(() => {
-		if (!isSignedIn) return;
+		if (!isSignedIn || Platform.OS === "web") return;
 
 		async function registerForPush() {
 			if (!Device.isDevice) {

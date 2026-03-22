@@ -1,8 +1,8 @@
 import { addHours, isBefore, isAfter } from "date-fns";
-import { and, eq } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/index.js";
-import { notificationPreferences, sessions, users } from "../db/schema.js";
+import { notificationPreferences, payments, sessions, users } from "../db/schema.js";
 import { sessionReminderEmail } from "../lib/email.js";
 import { notifyUser } from "../lib/notifications.js";
 
@@ -80,6 +80,39 @@ cron.post("/session-reminders", async (c) => {
 	}
 
 	return c.json({ sent, sessionsChecked: sessionsToRemind.length });
+});
+
+// Mark overdue payments and notify therapists
+cron.post("/overdue-payments", async (c) => {
+	const today = new Date().toISOString().split("T")[0];
+
+	// Find pending payments past due date
+	const overduePayments = await db
+		.select()
+		.from(payments)
+		.where(and(eq(payments.status, "pending"), lt(payments.dueDate, today)));
+
+	let updated = 0;
+
+	for (const payment of overduePayments) {
+		// Mark as overdue
+		await db
+			.update(payments)
+			.set({ status: "overdue" })
+			.where(eq(payments.id, payment.id));
+
+		// Notify therapist
+		await notifyUser({
+			userId: payment.therapistId,
+			title: "Payment Overdue",
+			body: `A payment of $${(payment.amountCents / 100).toFixed(2)} is overdue`,
+			data: { type: "payment_overdue", paymentId: payment.id },
+		}).catch(console.error);
+
+		updated++;
+	}
+
+	return c.json({ overdueMarked: updated });
 });
 
 export default cron;

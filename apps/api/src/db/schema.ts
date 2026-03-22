@@ -1,6 +1,7 @@
 import {
 	boolean,
 	date,
+	doublePrecision,
 	integer,
 	jsonb,
 	pgEnum,
@@ -13,7 +14,7 @@ import {
 
 // Enums
 export const userRoleEnum = pgEnum("user_role", ["admin", "therapist", "client"]);
-export const clientStatusEnum = pgEnum("client_status", ["active", "archived", "pending_invite"]);
+export const clientStatusEnum = pgEnum("client_status", ["active", "archived", "pending_invite", "pending_approval", "rejected"]);
 export const sessionStatusEnum = pgEnum("session_status", [
 	"pending",
 	"confirmed",
@@ -47,6 +48,11 @@ export const users = pgTable("users", {
 	phone: text("phone"),
 	role: userRoleEnum("role").notNull().default("client"),
 	avatarUrl: text("avatar_url"),
+	bio: text("bio"),
+	specializations: text("specializations"), // comma-separated
+	city: text("city"),
+	latitude: doublePrecision("latitude"),
+	longitude: doublePrecision("longitude"),
 	timezone: text("timezone").notNull().default("Asia/Kolkata"),
 	isActive: boolean("is_active").notNull().default(true),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -67,6 +73,7 @@ export const therapistClients = pgTable(
 			.notNull()
 			.references(() => users.id),
 		status: clientStatusEnum("status").notNull().default("pending_invite"),
+		initiatedBy: uuid("initiated_by").references(() => users.id),
 		startedAt: date("started_at"),
 		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 		updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -231,4 +238,25 @@ export const pushTokensTable = pgTable(
 		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 	},
 	(table) => [unique("user_push_token_unique").on(table.userId, table.token)],
+);
+
+export const reviews = pgTable(
+	"reviews",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		therapistId: uuid("therapist_id")
+			.notNull()
+			.references(() => users.id),
+		clientId: uuid("client_id")
+			.notNull()
+			.references(() => users.id),
+		rating: integer("rating").notNull(), // 1-5
+		comment: text("comment"),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [unique("one_review_per_client").on(table.therapistId, table.clientId)],
 );

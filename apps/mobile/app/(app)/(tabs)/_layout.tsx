@@ -7,6 +7,7 @@ import {
 	CreditCard,
 	User,
 	LayoutDashboard,
+	Search,
 } from "@tamagui/lucide-icons";
 
 export default function TabLayout() {
@@ -39,13 +40,12 @@ export default function TabLayout() {
 				}}
 			/>
 
-			{/* Clients — therapist & admin only */}
+			{/* Connections — visible to all */}
 			<Tabs.Screen
 				name="clients"
 				options={{
-					title: "Clients",
+					title: role === "client" ? "My Therapists" : "Clients",
 					tabBarIcon: ({ color, size }) => <Users color={color} size={size} />,
-					href: role === "client" ? null : "/(app)/(tabs)/clients",
 				}}
 			/>
 
@@ -64,6 +64,16 @@ export default function TabLayout() {
 				options={{
 					title: "Payments",
 					tabBarIcon: ({ color, size }) => <CreditCard color={color} size={size} />,
+				}}
+			/>
+
+			{/* Discover — visible to clients */}
+			<Tabs.Screen
+				name="discover"
+				options={{
+					title: "Discover",
+					tabBarIcon: ({ color, size }) => <Search color={color} size={size} />,
+					href: role === "client" ? "/(app)/(tabs)/discover" : null,
 				}}
 			/>
 

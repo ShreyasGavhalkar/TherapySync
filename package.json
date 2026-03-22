@@ -1,0 +1,29 @@
+{
+  "name": "therapysync",
+  "private": true,
+  "scripts": {
+    "dev:api": "turbo run dev --filter=@therapysync/api",
+    "dev:mobile": "turbo run dev --filter=@therapysync/mobile",
+    "dev:web": "turbo run dev --filter=@therapysync/web",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "db:generate": "turbo run db:generate --filter=@therapysync/api",
+    "db:migrate": "turbo run db:migrate --filter=@therapysync/api",
+    "db:push": "turbo run db:push --filter=@therapysync/api",
+    "db:studio": "turbo run db:studio --filter=@therapysync/api"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "turbo": "^2.3.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "pnpm": {
+    "overrides": {
+      "tamagui": "1.144.4",
+      "@tamagui/core": "1.144.4",
+      "@tamagui/web": "1.144.4"
+    }
+  }
+}

@@ -1,9 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
-import { FlatList, RefreshControl } from "react-native";
+import { FlatList, Pressable, RefreshControl } from "react-native";
+import { useRouter } from "expo-router";
 import { H4, Paragraph, XStack, YStack, Spinner } from "tamagui";
-import { Card, Badge } from "@therapysync/ui";
-import { useApiClient } from "@/lib/api";
-import type { HomeworkAssignment } from "@therapysync/shared";
+import { Card, Badge, Button } from "@therapysync/ui";
+import { useHomework } from "@/hooks/useHomework";
+import { useAuthStore } from "@/lib/auth-store";
 import { useState } from "react";
 
 const statusColors = {
@@ -15,17 +15,12 @@ const statusColors = {
 } as const;
 
 export default function HomeworkScreen() {
-	const api = useApiClient();
+	const router = useRouter();
+	const role = useAuthStore((s) => s.dbUser?.role);
 	const [refreshing, setRefreshing] = useState(false);
+	const isTherapist = role === "therapist" || role === "admin";
 
-	const {
-		data: assignments,
-		isLoading,
-		refetch,
-	} = useQuery({
-		queryKey: ["homework"],
-		queryFn: () => api.get<HomeworkAssignment[]>("/homework"),
-	});
+	const { data: assignments, isLoading, refetch } = useHomework();
 
 	const onRefresh = async () => {
 		setRefreshing(true);
@@ -43,6 +38,13 @@ export default function HomeworkScreen() {
 
 	return (
 		<YStack flex={1} backgroundColor="$background">
+			{isTherapist && (
+				<YStack padding="$4" paddingBottom={0}>
+					<Button variant="primary" onPress={() => router.push("/(app)/homework/create")}>
+						Assign Homework
+					</Button>
+				</YStack>
+			)}
 			<FlatList
 				data={assignments ?? []}
 				keyExtractor={(item) => item.id}
@@ -54,18 +56,20 @@ export default function HomeworkScreen() {
 					</YStack>
 				}
 				renderItem={({ item }) => (
-					<Card>
-						<XStack justifyContent="space-between" alignItems="center">
-							<H4 flex={1}>{item.title}</H4>
-							<Badge status={statusColors[item.status]}>{item.status}</Badge>
-						</XStack>
-						<Paragraph color="$gray10" marginTop="$2" numberOfLines={2}>
-							{item.description}
-						</Paragraph>
-						<Paragraph color="$gray9" fontSize="$3" marginTop="$1">
-							Due: {new Date(item.dueDate).toLocaleDateString()}
-						</Paragraph>
-					</Card>
+					<Pressable onPress={() => router.push(`/(app)/homework/${item.id}`)}>
+						<Card>
+							<XStack justifyContent="space-between" alignItems="center">
+								<H4 flex={1}>{item.title}</H4>
+								<Badge status={statusColors[item.status]}>{item.status}</Badge>
+							</XStack>
+							<Paragraph color="$gray10" marginTop="$2" numberOfLines={2}>
+								{item.description}
+							</Paragraph>
+							<Paragraph color="$gray9" fontSize="$3" marginTop="$1">
+								Due: {new Date(item.dueDate).toLocaleDateString()}
+							</Paragraph>
+						</Card>
+					</Pressable>
 				)}
 			/>
 		</YStack>

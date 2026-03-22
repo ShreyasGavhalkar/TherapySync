@@ -1,0 +1,7 @@
+{
+  "extends": "@therapysync/tsconfig/shared.json",
+  "include": ["src"],
+  "compilerOptions": {
+    "outDir": "dist"
+  }
+}

@@ -1,10 +1,12 @@
 import { cancelSessionSchema, createSessionSchema, updateSessionSchema } from "@therapysync/shared";
+import { addDays, addWeeks, addMonths } from "date-fns";
 import { and, between, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/index.js";
 import { sessions, users } from "../db/schema.js";
 import { sessionCreatedEmail, sessionCancelledEmail } from "../lib/email.js";
 import { notifySessionParticipants } from "../lib/notifications.js";
+import { logAudit } from "../middleware/audit.js";
 import { authMiddleware } from "../middleware/auth.js";
 
 const sessionsRouter = new Hono();
@@ -73,10 +75,32 @@ sessionsRouter.post("/", async (c) => {
 
 	const therapistId = user.role === "therapist" ? user.id : parsed.therapistId;
 
-	const [session] = await db
-		.insert(sessions)
-		.values({ ...parsed, therapistId })
-		.returning();
+	// Expand recurring sessions into individual instances
+	const recurrenceRule = parsed.recurrenceRule;
+	const sessionValues = [{ ...parsed, therapistId }];
+
+	if (recurrenceRule && recurrenceRule !== "none") {
+		const count = recurrenceRule === "daily" ? 30 : recurrenceRule === "weekly" ? 12 : recurrenceRule === "biweekly" ? 12 : 6;
+		const duration = parsed.endTime.getTime() - parsed.startTime.getTime();
+
+		for (let i = 1; i < count; i++) {
+			let nextStart: Date;
+			if (recurrenceRule === "daily") nextStart = addDays(parsed.startTime, i);
+			else if (recurrenceRule === "weekly") nextStart = addWeeks(parsed.startTime, i);
+			else if (recurrenceRule === "biweekly") nextStart = addWeeks(parsed.startTime, i * 2);
+			else nextStart = addMonths(parsed.startTime, i);
+
+			sessionValues.push({
+				...parsed,
+				therapistId,
+				startTime: nextStart,
+				endTime: new Date(nextStart.getTime() + duration),
+			});
+		}
+	}
+
+	const inserted = await db.insert(sessions).values(sessionValues).returning();
+	const session = inserted[0];
 
 	// Notify client about new session (fire-and-forget)
 	const therapistName = await getUserName(therapistId);
@@ -100,11 +124,11 @@ sessionsRouter.post("/", async (c) => {
 		data: { type: "session_created", sessionId: session.id },
 	}).catch(console.error);
 
-	return c.json(session, 201);
+	return c.json(inserted.length > 1 ? inserted : session, 201);
 });
 
 // Get session detail
-sessionsRouter.get("/:id", async (c) => {
+sessionsRouter.get("/:id", logAudit("READ", "session"), async (c) => {
 	const user = c.get("user");
 	const id = c.req.param("id");
 
@@ -145,7 +169,7 @@ sessionsRouter.get("/:id", async (c) => {
 });
 
 // Update session (reschedule)
-sessionsRouter.patch("/:id", async (c) => {
+sessionsRouter.patch("/:id", logAudit("UPDATE", "session"), async (c) => {
 	const user = c.get("user");
 	const id = c.req.param("id");
 	const body = await c.req.json();

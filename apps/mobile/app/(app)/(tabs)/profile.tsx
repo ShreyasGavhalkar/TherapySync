@@ -1,8 +1,13 @@
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
-import { H3, H4, Paragraph, Separator, XStack, YStack } from "tamagui";
+import { Switch } from "react-native";
+import { H3, H4, Paragraph, Separator, XStack, YStack, Spinner } from "tamagui";
 import { Button, Card } from "@therapysync/ui";
 import { useAuthStore } from "@/lib/auth-store";
+import {
+	useNotificationPreferences,
+	useUpdateNotificationPreferences,
+} from "@/hooks/useNotificationPreferences";
 
 export default function ProfileScreen() {
 	const { signOut } = useAuth();
@@ -10,6 +15,9 @@ export default function ProfileScreen() {
 	const router = useRouter();
 	const dbUser = useAuthStore((s) => s.dbUser);
 	const clearDbUser = useAuthStore((s) => s.clearDbUser);
+
+	const { data: prefs, isLoading: prefsLoading } = useNotificationPreferences();
+	const updatePrefs = useUpdateNotificationPreferences();
 
 	const handleSignOut = async () => {
 		clearDbUser();
@@ -50,6 +58,41 @@ export default function ProfileScreen() {
 							{clerkUser?.createdAt ? new Date(clerkUser.createdAt).toLocaleDateString() : "-"}
 						</Paragraph>
 					</XStack>
+				</YStack>
+			</Card>
+
+			<Card>
+				<YStack gap="$3">
+					<H4>Notifications</H4>
+					<Separator />
+					{prefsLoading ? (
+						<Spinner size="small" color="$primary" />
+					) : (
+						<>
+							<XStack justifyContent="space-between" alignItems="center">
+								<Paragraph>Push Notifications</Paragraph>
+								<Switch
+									value={prefs?.pushEnabled ?? true}
+									onValueChange={(value) => updatePrefs.mutate({ pushEnabled: value })}
+									trackColor={{ true: "#6C63FF", false: "#ccc" }}
+								/>
+							</XStack>
+							<XStack justifyContent="space-between" alignItems="center">
+								<Paragraph>Email Notifications</Paragraph>
+								<Switch
+									value={prefs?.emailEnabled ?? true}
+									onValueChange={(value) => updatePrefs.mutate({ emailEnabled: value })}
+									trackColor={{ true: "#6C63FF", false: "#ccc" }}
+								/>
+							</XStack>
+							<XStack justifyContent="space-between" alignItems="center">
+								<Paragraph>Reminder (hours before)</Paragraph>
+								<Paragraph color="$gray10" fontWeight="600">
+									{prefs?.reminderHours ?? 24}h
+								</Paragraph>
+							</XStack>
+						</>
+					)}
 				</YStack>
 			</Card>
 

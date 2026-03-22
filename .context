@@ -1,0 +1,110 @@
+# TherapySync - Project Context
+
+## What is TherapySync?
+A therapy practice management app for therapists and their clients. Built as a monorepo.
+
+## Tech Stack
+- **Monorepo**: pnpm workspaces + Turborepo
+- **API** (`apps/api`): Hono (Node/Bun), Drizzle ORM, PostgreSQL (Docker), Clerk auth
+- **Mobile** (`apps/mobile`): Expo (React Native), Expo Router, Tamagui UI, Clerk auth, TanStack Query
+- **Shared** (`packages/shared`): Zod schemas, constants
+- **UI** (`packages/ui`): Tamagui config + styled components (Button, Card, Input, Badge)
+- **Email**: Resend (not yet configured with API key)
+- **DB**: PostgreSQL 16 via Docker (`therapysync-db` container)
+
+## Project Structure
+```
+therapysync/
+├── apps/
+│   ├── api/          # Hono API server (port 3000)
+│   │   ├── src/
+│   │   │   ├── routes/   # auth, admin, clients, sessions, notes, homework, payments, files, push-tokens, cron
+│   │   │   ├── middleware/ # auth, role-guard, audit
+│   │   │   ├── db/       # schema.ts (Drizzle), index.ts
+│   │   │   └── lib/      # push.ts, email.ts, notifications.ts
+│   │   └── drizzle.config.ts
+│   └── mobile/       # Expo app
+│       ├── app/
+│       │   ├── _layout.tsx          # Root: ClerkProvider > TamaguiProvider > QueryProvider
+│       │   ├── index.tsx            # Auth redirect
+│       │   ├── (auth)/              # sign-in, sign-up
+│       │   └── (app)/
+│       │       ├── _layout.tsx      # Fetches /auth/me, sets auth store
+│       │       ├── (tabs)/          # dashboard, clients, schedule, homework, payments, profile
+│       │       └── session/         # [id], create, edit
+│       ├── hooks/                   # useSessions, usePushNotifications
+│       ├── lib/                     # api client, auth-store (zustand), query-provider, token-cache
+│       ├── tamagui.config.ts        # Inlined config (was re-exported from @therapysync/ui)
+│       └── metro.config.js          # Custom resolver for tamagui dedup
+├── packages/
+│   ├── shared/       # Zod schemas + constants, exports raw .ts
+│   └── ui/           # Tamagui config + styled components
+└── tooling/
+    └── typescript/   # Shared tsconfig bases
+```
+
+## Database
+- Running via Docker: `docker run --name therapysync-db -e POSTGRES_PASSWORD=password -e POSTGRES_DB=therapysync -p 5432:5432 -d postgres:16`
+- Schema pushed with `pnpm db:push`
+- View with `pnpm db:studio` or `docker exec -it therapysync-db psql -U postgres -d therapysync`
+
+## Fixes Applied This Session
+
+### 1. Shared package ESM resolution
+- **Problem**: `@therapysync/shared` exports weren't found at runtime
+- **Fix**: Added `"type": "module"` to `packages/shared/package.json`
+
+### 2. UI package ESM resolution
+- **Fix**: Added `"type": "module"` to `packages/ui/package.json`
+
+### 3. Resend crash on startup
+- **Problem**: `new Resend(undefined)` throws at module load time when `RESEND_API_KEY` is missing
+- **Fix**: Made initialization lazy in `apps/api/src/lib/email.ts`: `const resend = process.env.RESEND_API_KEY ? new Resend(...) : null`
+
+### 4. Metro can't resolve .js extensions in workspace packages
+- **Problem**: Metro bundler couldn't resolve `./foo.js` imports pointing to `.ts` files
+- **Fix**: Removed `.js` extensions from imports in `packages/ui/src/index.ts` and `packages/shared/src/schemas/index.ts` and `packages/shared/src/index.ts`
+
+### 5. Missing dependencies for mobile
+- Installed `@tamagui/babel-plugin` (was in babel config but not in deps)
+- Installed `@tamagui/core` (used by components but not a direct dep)
+- Installed `@babel/runtime` (needed by bundler)
+- Downgraded `@tamagui/babel-plugin` from 2.0.0-rc.29 to ^1.116.0 (was version-mismatched)
+
+### 6. Tamagui duplicate instance problem (IN PROGRESS)
+- **Problem**: pnpm creates two copies of `@tamagui/web` due to different peer dep contexts. `TamaguiProvider` sets config on copy A, but components from `@therapysync/ui` read from copy B.
+- **Attempted fixes**:
+  - pnpm overrides in root package.json for tamagui, @tamagui/core, @tamagui/web
+  - `shamefully-hoist=true` and `dedupe-peer-dependents=true` in .npmrc
+  - Changed tamagui/core from dependencies to peerDependencies in packages/ui
+  - Metro `extraNodeModules` config
+  - Metro custom `resolveRequest` to force resolve tamagui packages from mobile's node_modules
+- **Status**: Still unresolved. The two pnpm copies have different hashes (`gwdonegp...` vs `uyn6a4l7...`)
+- **Inlined tamagui.config.ts** in mobile app (was re-exporting from @therapysync/ui)
+- **Root _layout.tsx** updated to import from local `../tamagui.config` instead of `@therapysync/ui`
+
+## What Needs To Be Done
+
+### Immediate (blocking)
+1. **Fix Tamagui duplicate instance error** — The core blocker for running the mobile app. Need to ensure a single `@tamagui/web` instance is used across the bundle.
+
+### After mobile app runs
+2. **Clerk webhook (no ngrok)** — Can't receive Clerk webhooks locally. Workaround: manually insert users into DB after Clerk signup via `docker exec` psql.
+3. **Seed test user** — After signing up in the app, insert the Clerk user into the DB:
+   ```sql
+   INSERT INTO users (id, clerk_id, email, first_name, last_name, role)
+   VALUES (gen_random_uuid(), 'user_XXXX', 'your@email.com', 'Your', 'Name', 'therapist');
+   ```
+4. **Configure Resend** — Add `RESEND_API_KEY` to `apps/api/.env` when ready to test emails
+5. **Test full flow** — Sign in → dashboard, clients, sessions, schedule, homework, payments
+
+## Environment
+- macOS (Darwin 25.3.0)
+- Node v22.16.0
+- pnpm 9.15.0
+- No Xcode (only Command Line Tools) — no iOS simulator, use web or Expo Go on phone
+- Docker running PostgreSQL 16
+
+## Config Files
+- `apps/api/.env` — DATABASE_URL, CLERK_SECRET_KEY, CLERK_WEBHOOK_SECRET, CRON_SECRET, PORT
+- `apps/mobile/.env` — EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
