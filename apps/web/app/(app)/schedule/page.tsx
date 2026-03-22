@@ -109,7 +109,7 @@ export default function SchedulePage() {
 					) : (
 						<div className="space-y-3">
 							{sessionsOnDate.map((session) => (
-								<div key={session.id} className="border border-gray-200 rounded-lg p-3">
+								<Link key={session.id} href={`/schedule/${session.id}`} className="block border border-gray-200 rounded-lg p-3 hover:border-primary/50 hover:bg-primary/5 transition-colors cursor-pointer">
 									<div className="flex items-center justify-between mb-1">
 										<p className="font-medium text-sm">{session.title}</p>
 										<span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[session.status]}`}>
@@ -122,7 +122,7 @@ export default function SchedulePage() {
 									{session.location && (
 										<p className="text-xs text-gray-400 mt-1">{session.location}</p>
 									)}
-								</div>
+								</Link>
 							))}
 						</div>
 					)}

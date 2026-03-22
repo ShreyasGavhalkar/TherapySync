@@ -1,8 +1,8 @@
 import { inviteClientSchema } from "@therapysync/shared";
-import { and, eq, or } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/index.js";
-import { therapistClients, users } from "../db/schema.js";
+import { payments, sessionNotes, sessions, therapistClients, users } from "../db/schema.js";
 import { sendEmail } from "../lib/email.js";
 import { notifyUser } from "../lib/notifications.js";
 import { authMiddleware } from "../middleware/auth.js";
@@ -305,6 +305,83 @@ clients.patch("/:id", async (c) => {
 
 	if (!updated) return c.json({ error: "Not found" }, 404);
 	return c.json(updated);
+});
+
+// Get client detail: sessions with notes and payment status
+clients.get("/detail/:clientId", async (c) => {
+	const user = c.get("user");
+	const clientId = c.req.param("clientId");
+
+	// Determine therapist/client IDs based on role
+	const therapistId = user.role === "client" ? clientId : user.id;
+	const actualClientId = user.role === "client" ? user.id : clientId;
+
+	// Verify relationship exists
+	const [rel] = await db
+		.select()
+		.from(therapistClients)
+		.where(and(eq(therapistClients.therapistId, therapistId), eq(therapistClients.clientId, actualClientId)))
+		.limit(1);
+
+	if (!rel) return c.json({ error: "No relationship found" }, 404);
+
+	// Get user info
+	const [person] = await db
+		.select({
+			id: users.id,
+			email: users.email,
+			firstName: users.firstName,
+			lastName: users.lastName,
+			phone: users.phone,
+			avatarUrl: users.avatarUrl,
+		})
+		.from(users)
+		.where(eq(users.id, user.role === "client" ? therapistId : actualClientId))
+		.limit(1);
+
+	// Get all sessions between this therapist and client
+	const sessionList = await db
+		.select()
+		.from(sessions)
+		.where(and(eq(sessions.therapistId, therapistId), eq(sessions.clientId, actualClientId)))
+		.orderBy(desc(sessions.startTime));
+
+	// Get notes and payments for each session
+	const sessionDetails = await Promise.all(
+		sessionList.map(async (session) => {
+			const [note] = await db
+				.select({ id: sessionNotes.id, isSigned: sessionNotes.isSigned })
+				.from(sessionNotes)
+				.where(eq(sessionNotes.sessionId, session.id))
+				.limit(1);
+
+			const [payment] = await db
+				.select({
+					id: payments.id,
+					amountCents: payments.amountCents,
+					currency: payments.currency,
+					status: payments.status,
+					paidAt: payments.paidAt,
+				})
+				.from(payments)
+				.where(eq(payments.sessionId, session.id))
+				.limit(1);
+
+			return {
+				...session,
+				hasNote: !!note,
+				noteId: note?.id ?? null,
+				noteSigned: note?.isSigned ?? false,
+				payment: payment ?? (session.status === "completed" ? { status: "unpaid" as const, amountCents: 0, currency: "USD" } : null),
+			};
+		}),
+	);
+
+	return c.json({
+		person,
+		relationship: rel,
+		sessions: sessionDetails,
+	});
 });
 
 export default clients;

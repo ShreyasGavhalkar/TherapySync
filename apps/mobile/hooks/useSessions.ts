@@ -83,3 +83,76 @@ export function useCancelSession() {
 		},
 	});
 }
+
+export function useCompleteSession() {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: (id: string) => api.patch<Session>(`/sessions/${id}`, { status: "completed" }),
+		onSuccess: (_, id) => {
+			queryClient.invalidateQueries({ queryKey: ["sessions"] });
+			queryClient.invalidateQueries({ queryKey: ["session", id] });
+			queryClient.invalidateQueries({ queryKey: ["client-detail"] });
+		},
+	});
+}
+
+// --- Session Notes ---
+
+type SessionNote = {
+	id: string;
+	sessionId: string;
+	therapistId: string;
+	content: string;
+	isSigned: boolean;
+	signedAt: string | null;
+};
+
+export function useSessionNotes(sessionId: string | undefined) {
+	const api = useApiClient();
+	return useQuery({
+		queryKey: ["session-notes", sessionId],
+		queryFn: () => api.get<SessionNote | null>(`/sessions/${sessionId}/notes`),
+		enabled: !!sessionId,
+	});
+}
+
+export function useCreateNote() {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: ({ sessionId, content }: { sessionId: string; content: string }) =>
+			api.post<SessionNote>(`/sessions/${sessionId}/notes`, { content }),
+		onSuccess: (_, { sessionId }) => {
+			queryClient.invalidateQueries({ queryKey: ["session-notes", sessionId] });
+		},
+	});
+}
+
+export function useUpdateNote() {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: ({ sessionId, content }: { sessionId: string; content: string }) =>
+			api.patch<SessionNote>(`/sessions/${sessionId}/notes`, { content }),
+		onSuccess: (_, { sessionId }) => {
+			queryClient.invalidateQueries({ queryKey: ["session-notes", sessionId] });
+		},
+	});
+}
+
+export function useSignNote() {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: (sessionId: string) =>
+			api.post<SessionNote>(`/sessions/${sessionId}/notes/sign`, {}),
+		onSuccess: (_, sessionId) => {
+			queryClient.invalidateQueries({ queryKey: ["session-notes", sessionId] });
+		},
+	});
+}
