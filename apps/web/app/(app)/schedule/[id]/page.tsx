@@ -16,6 +16,9 @@ type SessionDetail = {
 	location: string | null;
 	recurrenceRule: string | null;
 	cancelReason: string | null;
+	proposedStartTime: string | null;
+	proposedEndTime: string | null;
+	proposedBy: string | null;
 	therapist: { id: string; firstName: string; lastName: string; email: string };
 	client: { id: string; firstName: string; lastName: string; email: string };
 };
@@ -47,6 +50,9 @@ export default function SessionDetailPage() {
 	const [noteContent, setNoteContent] = useState("");
 	const [editingNote, setEditingNote] = useState(false);
 	const [loading, setLoading] = useState<string | null>(null);
+	const [showRescheduleForm, setShowRescheduleForm] = useState(false);
+	const [proposedDate, setProposedDate] = useState("");
+	const [proposedTime, setProposedTime] = useState("");
 
 	const fetchSession = async () => {
 		const data = await api.get(`/sessions/${id}`);
@@ -231,6 +237,68 @@ export default function SessionDetailPage() {
 				</div>
 			)}
 
+			{/* Reschedule proposal banner */}
+			{session.proposedStartTime && session.proposedEndTime && (
+				<div className="bg-yellow-50 rounded-xl border border-yellow-200 p-6 mb-2">
+					<h2 className="font-semibold text-yellow-800 mb-2">Reschedule Proposed</h2>
+					<p className="text-sm text-yellow-700 mb-3">
+						New proposed time: <strong>{format(new Date(session.proposedStartTime), "EEEE, MMMM d, yyyy")} at {format(new Date(session.proposedStartTime), "h:mm a")} — {format(new Date(session.proposedEndTime), "h:mm a")}</strong>
+					</p>
+					{session.proposedBy !== user?.id ? (
+						<div className="flex gap-2">
+							<button type="button" onClick={async () => {
+								setLoading("accept-reschedule");
+								try { await api.post(`/sessions/${id}/accept-reschedule`, {}); fetchSession(); } catch (err: any) { alert(err.message); } finally { setLoading(null); }
+							}} disabled={loading === "accept-reschedule"} className="bg-primary text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-dark disabled:opacity-50">
+								{loading === "accept-reschedule" ? "Accepting..." : "Accept New Time"}
+							</button>
+							<button type="button" onClick={async () => {
+								setLoading("reject-reschedule");
+								try { await api.post(`/sessions/${id}/reject-reschedule`, {}); fetchSession(); } catch (err: any) { alert(err.message); } finally { setLoading(null); }
+							}} disabled={loading === "reject-reschedule"} className="bg-red-50 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-100 disabled:opacity-50">
+								Decline
+							</button>
+						</div>
+					) : (
+						<p className="text-xs text-yellow-600">Waiting for the other party to respond...</p>
+					)}
+				</div>
+			)}
+
+			{/* Propose reschedule form */}
+			{showRescheduleForm && (
+				<div className="bg-white rounded-xl border border-gray-200 p-6 mb-2">
+					<h2 className="font-semibold mb-3">Propose New Time</h2>
+					<div className="grid grid-cols-2 gap-3 mb-3">
+						<div>
+							<label className="block text-sm text-gray-600 mb-1">Date</label>
+							<input type="date" value={proposedDate} onChange={(e) => setProposedDate(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary outline-none" />
+						</div>
+						<div>
+							<label className="block text-sm text-gray-600 mb-1">Time</label>
+							<input type="time" value={proposedTime} onChange={(e) => setProposedTime(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary outline-none" />
+						</div>
+					</div>
+					<div className="flex gap-2">
+						<button type="button" onClick={async () => {
+							if (!proposedDate || !proposedTime) { alert("Please select date and time"); return; }
+							setLoading("propose");
+							const duration = new Date(session.endTime).getTime() - new Date(session.startTime).getTime();
+							const startTime = new Date(`${proposedDate}T${proposedTime}`);
+							const endTime = new Date(startTime.getTime() + duration);
+							try {
+								await api.post(`/sessions/${id}/propose-reschedule`, { startTime: startTime.toISOString(), endTime: endTime.toISOString() });
+								setShowRescheduleForm(false);
+								fetchSession();
+							} catch (err: any) { alert(err.message); } finally { setLoading(null); }
+						}} disabled={loading === "propose"} className="bg-primary text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-dark disabled:opacity-50">
+							{loading === "propose" ? "Sending..." : "Send Proposal"}
+						</button>
+						<button type="button" onClick={() => setShowRescheduleForm(false)} className="px-4 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50">Cancel</button>
+					</div>
+				</div>
+			)}
+
 			{/* Action buttons */}
 			<div className="flex flex-wrap gap-3">
 				{canConfirm && (
@@ -246,6 +314,11 @@ export default function SessionDetailPage() {
 				{canEdit && (
 					<button type="button" onClick={() => router.push(`/schedule/create?edit=${id}`)} className="px-5 py-2.5 rounded-lg border border-gray-300 hover:bg-gray-50">
 						Reschedule / Edit
+					</button>
+				)}
+				{canCancel && !showRescheduleForm && !session.proposedStartTime && (
+					<button type="button" onClick={() => setShowRescheduleForm(true)} className="px-5 py-2.5 rounded-lg border border-primary text-primary hover:bg-primary/5">
+						Propose Reschedule
 					</button>
 				)}
 				{canCancel && (

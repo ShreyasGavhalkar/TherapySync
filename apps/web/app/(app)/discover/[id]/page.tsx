@@ -33,9 +33,17 @@ export default function TherapistProfilePage() {
 	const [comment, setComment] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [requesting, setRequesting] = useState(false);
+	const [relationshipStatus, setRelationshipStatus] = useState<string | null>(null);
 
 	useEffect(() => {
-		if (id) api.get(`/discover/therapists/${id}`).then(setProfile).catch(console.error);
+		if (id) {
+			api.get(`/discover/therapists/${id}`).then(setProfile).catch(console.error);
+			// Check if already connected
+			api.get("/relationships").then((rels: any[]) => {
+				const rel = rels.find((r) => r.therapist?.id === id);
+				if (rel) setRelationshipStatus(rel.status);
+			}).catch(console.error);
+		}
 	}, [api, id]);
 
 	const handleSubmitReview = async () => {
@@ -74,26 +82,36 @@ export default function TherapistProfilePage() {
 				</div>
 			</div>
 
-			{/* Request services */}
+			{/* Request services / status */}
 			<div className="mb-6">
-				<button
-					type="button"
-					onClick={async () => {
-						setRequesting(true);
-						try {
-							await api.post("/relationships/request", { therapistId: id });
-							alert("Request sent! The therapist will review your request.");
-						} catch (err: any) {
-							alert(err.message);
-						} finally {
-							setRequesting(false);
-						}
-					}}
-					disabled={requesting}
-					className="w-full bg-primary text-white py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 font-medium"
-				>
-					{requesting ? "Sending..." : "Request Services"}
-				</button>
+				{relationshipStatus === "active" ? (
+					<div className="w-full bg-green-50 text-green-700 py-3 rounded-lg text-center font-medium border border-green-200">
+						Already Connected
+					</div>
+				) : relationshipStatus === "pending_approval" || relationshipStatus === "pending_invite" ? (
+					<div className="w-full bg-yellow-50 text-yellow-700 py-3 rounded-lg text-center font-medium border border-yellow-200">
+						Request Pending
+					</div>
+				) : (
+					<button
+						type="button"
+						onClick={async () => {
+							setRequesting(true);
+							try {
+								await api.post("/relationships/request", { therapistId: id });
+								setRelationshipStatus("pending_approval");
+							} catch (err: any) {
+								alert(err.message);
+							} finally {
+								setRequesting(false);
+							}
+						}}
+						disabled={requesting}
+						className="w-full bg-primary text-white py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 font-medium"
+					>
+						{requesting ? "Sending..." : "Request Services"}
+					</button>
+				)}
 			</div>
 
 			{/* Contact */}

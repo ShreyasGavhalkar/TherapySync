@@ -21,6 +21,16 @@ type SessionDetail = {
 	payment: { id?: string; amountCents: number; currency: string; status: string; paidAt?: string | null } | null;
 };
 
+type RecentPayment = {
+	id: string;
+	amountCents: number;
+	currency: string;
+	status: string;
+	dueDate: string;
+	paidAt: string | null;
+	createdAt: string;
+};
+
 type ClientDetail = {
 	person: {
 		id: string;
@@ -31,6 +41,8 @@ type ClientDetail = {
 	};
 	relationship: { id: string; status: string; startedAt: string | null };
 	sessions: SessionDetail[];
+	recentPayments: RecentPayment[];
+	totalPayments: number;
 };
 
 const sessionStatusColors: Record<string, string> = {
@@ -140,6 +152,52 @@ export default function ClientDetailScreen() {
 						))
 					)}
 				</YStack>
+
+				{/* Recent Payments — therapist only */}
+				{isTherapist && (
+					<YStack gap="$2">
+						<H4 color="$gray11">
+							Recent Payments ({data.recentPayments.length}{data.totalPayments > 5 ? ` of ${data.totalPayments}` : ""})
+						</H4>
+						{data.recentPayments.length === 0 ? (
+							<Paragraph color="$gray10" padding="$3">No payments yet</Paragraph>
+						) : (
+							data.recentPayments.map((p) => (
+								<Card key={p.id}>
+									<XStack justifyContent="space-between" alignItems="center">
+										<Paragraph fontSize="$3" color="$gray10">
+											{format(new Date(p.createdAt), "dd/MM/yyyy")}
+										</Paragraph>
+										<XStack alignItems="center" gap="$2">
+											{p.status === "paid" && (
+												<Paragraph fontWeight="700" color="$green10">
+													{formatCurrency(p.amountCents, p.currency)}
+												</Paragraph>
+											)}
+											<Badge status={
+												p.status === "paid" ? "success" :
+												p.status === "pending" ? "warning" : "error"
+											}>
+												{p.status}
+											</Badge>
+										</XStack>
+									</XStack>
+								</Card>
+							))
+						)}
+						{data.totalPayments > 5 && (
+							<Pressable onPress={() => {
+								// Navigate to payments tab — can't easily pass filter in Expo Router tabs,
+								// so just navigate there
+								router.push("/(app)/(tabs)/payments");
+							}}>
+								<Paragraph color="$blue10" textAlign="center" fontWeight="600" padding="$2">
+									View all {data.totalPayments} payments
+								</Paragraph>
+							</Pressable>
+						)}
+					</YStack>
+				)}
 			</YStack>
 		</ScrollView>
 	);

@@ -47,6 +47,7 @@ export default function PaymentsScreen() {
 	const paidTotal = summary?.find((s) => s.status === "paid")?.totalCents ?? 0;
 	const pendingTotal = summary?.find((s) => s.status === "pending")?.totalCents ?? 0;
 	const overdueTotal = summary?.find((s) => s.status === "overdue")?.totalCents ?? 0;
+	const totalCount = summary?.reduce((acc, s) => acc + s.count, 0) ?? 0;
 
 	return (
 		<YStack flex={1} backgroundColor="$background">
@@ -60,26 +61,43 @@ export default function PaymentsScreen() {
 						{summary && summary.length > 0 && (
 							<Card>
 								<H4 marginBottom="$2">Summary</H4>
-								<XStack justifyContent="space-between">
-									<YStack alignItems="center" flex={1}>
-										<Paragraph color="$green10" fontWeight="700" fontSize="$5">
-											{formatCurrency(paidTotal)}
-										</Paragraph>
-										<Paragraph color="$gray10" fontSize="$2">Paid</Paragraph>
-									</YStack>
-									<YStack alignItems="center" flex={1}>
-										<Paragraph color="$orange10" fontWeight="700" fontSize="$5">
-											{formatCurrency(pendingTotal)}
-										</Paragraph>
-										<Paragraph color="$gray10" fontSize="$2">Pending</Paragraph>
-									</YStack>
-									<YStack alignItems="center" flex={1}>
-										<Paragraph color="$red10" fontWeight="700" fontSize="$5">
-											{formatCurrency(overdueTotal)}
-										</Paragraph>
-										<Paragraph color="$gray10" fontSize="$2">Overdue</Paragraph>
-									</YStack>
-								</XStack>
+								{isTherapist ? (
+									<XStack justifyContent="space-between">
+										<YStack alignItems="center" flex={1}>
+											<Paragraph color="$green10" fontWeight="700" fontSize="$5">
+												{formatCurrency(paidTotal)}
+											</Paragraph>
+											<Paragraph color="$gray10" fontSize="$2">Received</Paragraph>
+										</YStack>
+										<YStack alignItems="center" flex={1}>
+											<Paragraph color="$orange10" fontWeight="700" fontSize="$5">
+												{formatCurrency(pendingTotal)}
+											</Paragraph>
+											<Paragraph color="$gray10" fontSize="$2">Pending</Paragraph>
+										</YStack>
+										<YStack alignItems="center" flex={1}>
+											<Paragraph color="$red10" fontWeight="700" fontSize="$5">
+												{formatCurrency(overdueTotal)}
+											</Paragraph>
+											<Paragraph color="$gray10" fontSize="$2">Overdue</Paragraph>
+										</YStack>
+									</XStack>
+								) : (
+									<XStack justifyContent="space-between">
+										<YStack alignItems="center" flex={1}>
+											<Paragraph color="$orange10" fontWeight="700" fontSize="$5">
+												{formatCurrency(pendingTotal)}
+											</Paragraph>
+											<Paragraph color="$gray10" fontSize="$2">Pending</Paragraph>
+										</YStack>
+										<YStack alignItems="center" flex={1}>
+											<Paragraph fontWeight="700" fontSize="$5">
+												{totalCount}
+											</Paragraph>
+											<Paragraph color="$gray10" fontSize="$2">Total</Paragraph>
+										</YStack>
+									</XStack>
+								)}
 							</Card>
 						)}
 						{isTherapist && (

@@ -10,3 +10,5 @@ dist/
 .claude/
 uploads/
 .next/
+ios/
+android/

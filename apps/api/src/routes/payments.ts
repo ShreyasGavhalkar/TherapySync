@@ -1,21 +1,20 @@
 import { createPaymentSchema, updatePaymentSchema } from "@therapysync/shared";
-import { and, between, eq, sql } from "drizzle-orm";
+import { and, between, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/index.js";
-import { payments } from "../db/schema.js";
+import { payments, sessions, users } from "../db/schema.js";
 import { authMiddleware } from "../middleware/auth.js";
 
 const paymentsRouter = new Hono();
 
 paymentsRouter.use("*", authMiddleware);
 
-// List payments
+// List payments (with limit, client filter, and client name join)
 paymentsRouter.get("/", async (c) => {
 	const user = c.get("user");
-	const clientId = c.req.query("clientId");
+	const clientIdParam = c.req.query("clientId");
 	const status = c.req.query("status");
-	const from = c.req.query("from");
-	const to = c.req.query("to");
+	const limit = Number(c.req.query("limit") || "10");
 
 	const conditions = [];
 
@@ -25,24 +24,44 @@ paymentsRouter.get("/", async (c) => {
 		conditions.push(eq(payments.clientId, user.id));
 	}
 
-	if (clientId) conditions.push(eq(payments.clientId, clientId));
+	// Support comma-separated client IDs for multi-filter
+	if (clientIdParam) {
+		const clientIds = clientIdParam.split(",").map((s) => s.trim()).filter(Boolean);
+		if (clientIds.length === 1) {
+			conditions.push(eq(payments.clientId, clientIds[0]));
+		} else if (clientIds.length > 1) {
+			conditions.push(inArray(payments.clientId, clientIds));
+		}
+	}
 	if (status) {
 		conditions.push(
-			eq(
-				payments.status,
-				status as "pending" | "paid" | "overdue" | "waived" | "refunded",
-			),
+			eq(payments.status, status as "pending" | "paid" | "overdue" | "waived" | "refunded"),
 		);
-	}
-	if (from && to) {
-		conditions.push(between(payments.dueDate, from, to));
 	}
 
 	const result = await db
-		.select()
+		.select({
+			id: payments.id,
+			therapistId: payments.therapistId,
+			clientId: payments.clientId,
+			sessionId: payments.sessionId,
+			amountCents: payments.amountCents,
+			currency: payments.currency,
+			status: payments.status,
+			dueDate: payments.dueDate,
+			paidAt: payments.paidAt,
+			paymentMethod: payments.paymentMethod,
+			notes: payments.notes,
+			createdAt: payments.createdAt,
+			clientName: sql<string>`concat(${users.firstName}, ' ', ${users.lastName})`,
+			sessionTitle: sessions.title,
+		})
 		.from(payments)
+		.leftJoin(users, eq(payments.clientId, users.id))
+		.leftJoin(sessions, eq(payments.sessionId, sessions.id))
 		.where(conditions.length > 0 ? and(...conditions) : undefined)
-		.orderBy(payments.dueDate);
+		.orderBy(desc(payments.createdAt))
+		.limit(limit);
 
 	return c.json(result);
 });
@@ -70,9 +89,48 @@ paymentsRouter.post("/", async (c) => {
 	return c.json(payment, 201);
 });
 
+// Mark payment as paid (therapist only)
+paymentsRouter.post("/:id/mark-paid", async (c) => {
+	const user = c.get("user");
+	if (user.role === "client") {
+		return c.json({ error: "Only therapists can mark payments" }, 403);
+	}
+
+	const id = c.req.param("id");
+	const body = await c.req.json();
+	const { amountCents, paymentMethod } = body;
+
+	if (!amountCents || amountCents <= 0) {
+		return c.json({ error: "Amount is required" }, 400);
+	}
+
+	const conditions = [eq(payments.id, id)];
+	if (user.role === "therapist") {
+		conditions.push(eq(payments.therapistId, user.id));
+	}
+
+	const [updated] = await db
+		.update(payments)
+		.set({
+			status: "paid",
+			amountCents,
+			paidAt: new Date(),
+			paymentMethod: paymentMethod ?? null,
+		})
+		.where(and(...conditions))
+		.returning();
+
+	if (!updated) return c.json({ error: "Payment not found" }, 404);
+	return c.json(updated);
+});
+
 // Update payment
 paymentsRouter.patch("/:id", async (c) => {
 	const user = c.get("user");
+	if (user.role === "client") {
+		return c.json({ error: "Only therapists can update payments" }, 403);
+	}
+
 	const id = c.req.param("id");
 	const body = await c.req.json();
 	const parsed = updatePaymentSchema.parse(body);
@@ -82,7 +140,6 @@ paymentsRouter.patch("/:id", async (c) => {
 		conditions.push(eq(payments.therapistId, user.id));
 	}
 
-	// If marking as paid, set paidAt
 	const updates: Record<string, unknown> = { ...parsed };
 	if (parsed.dueDate) {
 		updates.dueDate = parsed.dueDate.toISOString().split("T")[0];
@@ -112,8 +169,6 @@ paymentsRouter.get("/summary", async (c) => {
 		conditions.push(eq(payments.clientId, user.id));
 	}
 
-	const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
 	const result = await db
 		.select({
 			status: payments.status,
@@ -121,7 +176,7 @@ paymentsRouter.get("/summary", async (c) => {
 			count: sql<number>`count(*)::int`,
 		})
 		.from(payments)
-		.where(whereClause)
+		.where(conditions.length > 0 ? and(...conditions) : undefined)
 		.groupBy(payments.status);
 
 	return c.json(result);

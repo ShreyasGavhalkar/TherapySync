@@ -1,32 +1,46 @@
-import { Alert, Pressable, RefreshControl, SectionList } from "react-native";
+import { Alert, FlatList, Pressable, RefreshControl } from "react-native";
 import { useRouter } from "expo-router";
 import { Paragraph, XStack, YStack, Spinner } from "tamagui";
-import { Card, Badge, Button } from "@therapysync/ui";
+import { Card, Badge, Button, Input } from "@therapysync/ui";
 import { useClients, useAcceptRelationship, useRejectRelationship, type ClientRelationship } from "@/hooks/useClients";
 import { useAuthStore } from "@/lib/auth-store";
 import { useState, useMemo } from "react";
 import { ChevronRight } from "@tamagui/lucide-icons";
+
+type Tab = "requests" | "active";
 
 export default function ClientsScreen() {
 	const router = useRouter();
 	const role = useAuthStore((s) => s.dbUser?.role);
 	const userId = useAuthStore((s) => s.dbUser?.id);
 	const [refreshing, setRefreshing] = useState(false);
+	const [tab, setTab] = useState<Tab>("active");
+	const [search, setSearch] = useState("");
 	const isTherapist = role === "therapist" || role === "admin";
 
 	const { data: relationships, isLoading, refetch } = useClients();
 	const acceptMutation = useAcceptRelationship();
 	const rejectMutation = useRejectRelationship();
 
-	const sections = useMemo(() => {
+	const { requests, active } = useMemo(() => {
 		const all = relationships ?? [];
-		const requests = all.filter((r) => r.status === "pending_invite" || r.status === "pending_approval");
-		const active = all.filter((r) => r.status === "active");
-		const result = [];
-		if (requests.length > 0) result.push({ title: `Requests (${requests.length})`, data: requests });
-		result.push({ title: `Active Connections (${active.length})`, data: active });
-		return result;
+		return {
+			requests: all.filter((r) => r.status === "pending_invite" || r.status === "pending_approval"),
+			active: all.filter((r) => r.status === "active"),
+		};
 	}, [relationships]);
+
+	const filterBySearch = (list: ClientRelationship[]) => {
+		if (!search.trim()) return list;
+		const q = search.toLowerCase();
+		return list.filter((rel) => {
+			const person = isTherapist ? rel.client : rel.therapist;
+			if (!person) return false;
+			return person.firstName.toLowerCase().includes(q) || person.lastName.toLowerCase().includes(q) || person.email.toLowerCase().includes(q);
+		});
+	};
+
+	const currentList = filterBySearch(tab === "requests" ? requests : active);
 
 	const onRefresh = async () => {
 		setRefreshing(true);
@@ -55,104 +69,119 @@ export default function ClientsScreen() {
 
 	return (
 		<YStack flex={1} backgroundColor="$background">
-			<SectionList
-				sections={sections}
+			{/* Tab bar */}
+			<XStack borderBottomWidth={1} borderColor="$borderColor">
+				<Pressable onPress={() => setTab("active")} style={{ flex: 1 }}>
+					<YStack
+						paddingVertical="$3"
+						alignItems="center"
+						borderBottomWidth={2}
+						borderColor={tab === "active" ? "$blue8" : "transparent"}
+					>
+						<Paragraph fontWeight="600" color={tab === "active" ? "$blue10" : "$gray10"}>
+							Connections{active.length > 0 ? ` (${active.length})` : ""}
+						</Paragraph>
+					</YStack>
+				</Pressable>
+				<Pressable onPress={() => setTab("requests")} style={{ flex: 1 }}>
+					<YStack
+						paddingVertical="$3"
+						alignItems="center"
+						borderBottomWidth={2}
+						borderColor={tab === "requests" ? "$blue8" : "transparent"}
+					>
+						<Paragraph fontWeight="600" color={tab === "requests" ? "$blue10" : "$gray10"}>
+							Requests{requests.length > 0 ? ` (${requests.length})` : ""}
+						</Paragraph>
+					</YStack>
+				</Pressable>
+			</XStack>
+
+		{/* Search */}
+			<YStack padding="$3" paddingBottom={0}>
+				<Input
+					placeholder="Search by name or email..."
+					value={search}
+					onChangeText={setSearch}
+				/>
+			</YStack>
+
+			<FlatList
+				data={currentList}
 				keyExtractor={(item) => item.id}
-				contentContainerStyle={{ padding: 16 }}
+				contentContainerStyle={{ padding: 16, gap: 12 }}
 				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-				stickySectionHeadersEnabled={false}
 				ListHeaderComponent={
-					isTherapist ? (
-						<YStack marginBottom="$3">
+					isTherapist && tab === "active" ? (
+						<YStack marginBottom="$2">
 							<Button variant="primary" onPress={() => router.push("/(app)/client/invite")}>
 								Invite Client
 							</Button>
 						</YStack>
 					) : null
 				}
-				renderSectionHeader={({ section }) => (
-					<YStack paddingTop="$4" paddingBottom="$2">
-						<Paragraph fontWeight="700" fontSize="$4" color="$gray11">
-							{section.title}
+				ListEmptyComponent={
+					<YStack padding="$6" alignItems="center">
+						<Paragraph color="$gray10">
+							{tab === "requests"
+								? "No pending requests"
+								: isTherapist
+									? "No active clients yet"
+									: "No active connections yet"}
 						</Paragraph>
 					</YStack>
-				)}
-				renderItem={({ item, section }) => {
+				}
+				renderItem={({ item }) => {
 					const person = isTherapist ? item.client : item.therapist;
 					if (!person) return null;
 
-					const isRequestSection = section.title.startsWith("Requests");
-					const needsMyAction =
-						(item.status === "pending_invite" && item.initiatedBy !== userId) ||
-						(item.status === "pending_approval" && item.initiatedBy !== userId);
-					const iSent = item.initiatedBy === userId;
+					if (tab === "requests") {
+						const needsMyAction =
+							(item.status === "pending_invite" && item.initiatedBy !== userId) ||
+							(item.status === "pending_approval" && item.initiatedBy !== userId);
+						const iSent = item.initiatedBy === userId;
 
-					// Request card
-					if (isRequestSection) {
 						return (
-							<YStack marginBottom="$2">
-								<Card>
-									<XStack justifyContent="space-between" alignItems="flex-start">
+							<Card>
+								<XStack justifyContent="space-between" alignItems="flex-start">
+									<YStack flex={1}>
+										<Paragraph fontWeight="600">{person.firstName} {person.lastName}</Paragraph>
+										<Paragraph color="$gray10" fontSize="$2">{person.email}</Paragraph>
+									</YStack>
+									<Badge status={iSent ? "warning" : "info"}>
+										{iSent ? "Sent" : "Received"}
+									</Badge>
+								</XStack>
+								{needsMyAction && (
+									<XStack gap="$2" marginTop="$3">
+										<Button variant="primary" size="sm" flex={1} onPress={() => handleAccept(item.id)} disabled={acceptMutation.isPending}>Accept</Button>
+										<Button variant="danger" size="sm" flex={1} onPress={() => handleReject(item.id)} disabled={rejectMutation.isPending}>Reject</Button>
+									</XStack>
+								)}
+								{iSent && <Paragraph color="$gray9" fontSize="$2" marginTop="$2">Waiting for response...</Paragraph>}
+							</Card>
+						);
+					}
+
+					// Active — tappable
+					return (
+						<Pressable onPress={() => router.push(`/(app)/client-detail/${person.id}`)}>
+							<Card>
+								<XStack justifyContent="space-between" alignItems="center">
+									<XStack alignItems="center" gap="$3" flex={1}>
+										<YStack width={40} height={40} borderRadius={20} backgroundColor="$blue5" alignItems="center" justifyContent="center">
+											<Paragraph fontSize="$3" fontWeight="700" color="$blue10">{person.firstName[0]}{person.lastName[0]}</Paragraph>
+										</YStack>
 										<YStack flex={1}>
 											<Paragraph fontWeight="600">{person.firstName} {person.lastName}</Paragraph>
 											<Paragraph color="$gray10" fontSize="$2">{person.email}</Paragraph>
 										</YStack>
-										<Badge status={iSent ? "warning" : "info"}>
-											{iSent ? "Sent" : "Received"}
-										</Badge>
 									</XStack>
-									{needsMyAction && (
-										<XStack gap="$2" marginTop="$3">
-											<Button variant="primary" size="sm" flex={1} onPress={() => handleAccept(item.id)} disabled={acceptMutation.isPending}>Accept</Button>
-											<Button variant="danger" size="sm" flex={1} onPress={() => handleReject(item.id)} disabled={rejectMutation.isPending}>Reject</Button>
-										</XStack>
-									)}
-									{iSent && <Paragraph color="$gray9" fontSize="$2" marginTop="$2">Waiting for response...</Paragraph>}
-								</Card>
-							</YStack>
-						);
-					}
-
-					// Active connection — tappable, opens detail
-					return (
-						<Pressable onPress={() => router.push(`/(app)/client-detail/${person.id}`)}>
-							<YStack marginBottom="$2">
-								<Card>
-									<XStack justifyContent="space-between" alignItems="center">
-										<XStack alignItems="center" gap="$3" flex={1}>
-											<YStack
-												width={40}
-												height={40}
-												borderRadius={20}
-												backgroundColor="$blue5"
-												alignItems="center"
-												justifyContent="center"
-											>
-												<Paragraph fontSize="$3" fontWeight="700" color="$blue10">
-													{person.firstName[0]}{person.lastName[0]}
-												</Paragraph>
-											</YStack>
-											<YStack flex={1}>
-												<Paragraph fontWeight="600">{person.firstName} {person.lastName}</Paragraph>
-												<Paragraph color="$gray10" fontSize="$2">{person.email}</Paragraph>
-											</YStack>
-										</XStack>
-										<ChevronRight size={18} color="$gray9" />
-									</XStack>
-								</Card>
-							</YStack>
+									<ChevronRight size={18} color="$gray9" />
+								</XStack>
+							</Card>
 						</Pressable>
 					);
-				}}
-				renderSectionFooter={({ section }) => {
-					if (section.data.length === 0 && section.title.startsWith("Active")) {
-						return (
-							<Paragraph color="$gray10" padding="$3" textAlign="center">
-								{isTherapist ? "No active clients yet" : "No active connections yet"}
-							</Paragraph>
-						);
-					}
-					return null;
 				}}
 			/>
 		</YStack>

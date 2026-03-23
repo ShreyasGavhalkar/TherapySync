@@ -4,7 +4,9 @@ import { useRouter } from "expo-router";
 import { H4, Paragraph, XStack, YStack, Spinner } from "tamagui";
 import { Card, Input } from "@therapysync/ui";
 import { useDiscoverTherapists } from "@/hooks/useDiscover";
+import { useClients } from "@/hooks/useClients";
 import { Star } from "@tamagui/lucide-icons";
+import { useMemo } from "react";
 
 export default function DiscoverScreen() {
 	const router = useRouter();
@@ -14,6 +16,15 @@ export default function DiscoverScreen() {
 	const { data: therapists, isLoading, refetch } = useDiscoverTherapists(
 		city.trim() ? { city: city.trim() } : undefined,
 	);
+	const { data: relationships } = useClients();
+
+	const connectedIds = useMemo(() => {
+		return new Set((relationships ?? []).filter((r) => r.status === "active").map((r) => r.therapist?.id).filter(Boolean));
+	}, [relationships]);
+
+	const filteredTherapists = useMemo(() => {
+		return (therapists ?? []).filter((t) => !connectedIds.has(t.id));
+	}, [therapists, connectedIds]);
 
 	const onRefresh = async () => {
 		setRefreshing(true);
@@ -37,7 +48,7 @@ export default function DiscoverScreen() {
 				</YStack>
 			) : (
 				<FlatList
-					data={therapists ?? []}
+					data={filteredTherapists}
 					keyExtractor={(item) => item.id}
 					contentContainerStyle={{ padding: 16, gap: 12 }}
 					refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}

@@ -19,6 +19,7 @@ type Therapist = {
 export default function DiscoverPage() {
 	const api = useApi();
 	const [therapists, setTherapists] = useState<Therapist[]>([]);
+	const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set());
 	const [city, setCity] = useState("");
 	const [loading, setLoading] = useState(true);
 
@@ -32,7 +33,16 @@ export default function DiscoverPage() {
 
 	useEffect(() => {
 		fetchTherapists().catch(console.error);
+		// Fetch existing relationships to filter out active connections
+		api.get("/relationships").then((rels: any[]) => {
+			const activeIds = new Set(
+				rels.filter((r) => r.status === "active").map((r) => r.therapist?.id).filter(Boolean),
+			);
+			setConnectedIds(activeIds);
+		}).catch(console.error);
 	}, [api]);
+
+	const filteredTherapists = therapists.filter((t) => !connectedIds.has(t.id));
 
 	const handleSearch = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -65,11 +75,11 @@ export default function DiscoverPage() {
 				<div className="flex items-center justify-center h-64">
 					<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
 				</div>
-			) : therapists.length === 0 ? (
+			) : filteredTherapists.length === 0 ? (
 				<p className="text-center text-gray-500 py-12">No therapists found</p>
 			) : (
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-					{therapists.map((t) => (
+					{filteredTherapists.map((t) => (
 						<Link key={t.id} href={`/discover/${t.id}`} className="block bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow">
 							<div className="flex items-start justify-between mb-3">
 								<div>

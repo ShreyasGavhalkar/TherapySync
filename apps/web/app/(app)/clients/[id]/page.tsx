@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { format } from "date-fns";
 import { useApi } from "@/lib/hooks";
 import { useUser } from "@/lib/user-context";
-import { FileText, DollarSign, ChevronRight } from "lucide-react";
+import { FileText, DollarSign } from "lucide-react";
 import Link from "next/link";
 
 type SessionDetail = {
@@ -21,10 +21,23 @@ type SessionDetail = {
 	payment: { id?: string; amountCents: number; currency: string; status: string } | null;
 };
 
+type RecentPayment = {
+	id: string;
+	amountCents: number;
+	currency: string;
+	status: string;
+	dueDate: string;
+	paidAt: string | null;
+	sessionId: string | null;
+	createdAt: string;
+};
+
 type ClientDetail = {
 	person: { id: string; email: string; firstName: string; lastName: string; phone: string | null };
 	relationship: { id: string; status: string; startedAt: string | null };
 	sessions: SessionDetail[];
+	recentPayments: RecentPayment[];
+	totalPayments: number;
 };
 
 const sessionStatusColors: Record<string, string> = {
@@ -100,7 +113,7 @@ export default function ClientDetailPage() {
 			)}
 
 			{/* Past sessions */}
-			<div>
+			<div className="mb-6">
 				<h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Past Sessions ({past.length})</h2>
 				<div className="bg-white rounded-xl border border-gray-200">
 					{past.length === 0 ? (
@@ -114,6 +127,49 @@ export default function ClientDetailPage() {
 					)}
 				</div>
 			</div>
+
+			{/* Recent Payments */}
+			{isTherapist && (
+				<div>
+					<h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+						Recent Payments ({data.recentPayments.length}{data.totalPayments > 5 ? ` of ${data.totalPayments}` : ""})
+					</h2>
+					<div className="bg-white rounded-xl border border-gray-200">
+						{data.recentPayments.length === 0 ? (
+							<p className="p-6 text-gray-500 text-center">No payments yet</p>
+						) : (
+							<div className="divide-y divide-gray-100">
+								{data.recentPayments.map((p) => (
+									<div key={p.id} className="p-4 flex items-center justify-between">
+										<div>
+											<p className="text-sm">{format(new Date(p.createdAt), "dd/MM/yyyy")}</p>
+										</div>
+										<div className="flex items-center gap-3">
+											{p.status === "paid" ? (
+												<span className="text-sm font-semibold text-green-700">{formatCurrency(p.amountCents, p.currency)}</span>
+											) : null}
+											<span className={`text-xs px-2 py-0.5 rounded-full ${
+												p.status === "paid" ? "bg-green-100 text-green-800" :
+												p.status === "pending" ? "bg-yellow-100 text-yellow-800" :
+												"bg-red-100 text-red-800"
+											}`}>
+												{p.status}
+											</span>
+										</div>
+									</div>
+								))}
+							</div>
+						)}
+					</div>
+					{data.totalPayments > 5 && (
+						<div className="mt-2 text-center">
+							<Link href={`/payments?clientId=${person.id}`} className="text-sm text-primary hover:underline">
+								View all {data.totalPayments} payments
+							</Link>
+						</div>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }
@@ -122,7 +178,7 @@ function SessionRow({ session, isTherapist }: { session: SessionDetail; isTherap
 	const d = new Date(session.startTime);
 
 	return (
-		<div className="p-4 flex items-center justify-between">
+		<Link href={`/schedule/${session.id}`} className="block p-4 hover:bg-gray-50 transition-colors cursor-pointer">
 			<div className="flex-1">
 				<div className="flex items-center gap-2 mb-1">
 					<p className="font-medium">{session.title}</p>
@@ -154,6 +210,6 @@ function SessionRow({ session, isTherapist }: { session: SessionDetail; isTherap
 					)}
 				</div>
 			</div>
-		</div>
+		</Link>
 	);
 }

@@ -3,7 +3,7 @@ import { addDays, addWeeks, addMonths } from "date-fns";
 import { and, between, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/index.js";
-import { sessions, users } from "../db/schema.js";
+import { payments, sessions, users } from "../db/schema.js";
 import { sessionCreatedEmail, sessionCancelledEmail } from "../lib/email.js";
 import { notifySessionParticipants } from "../lib/notifications.js";
 import { logAudit } from "../middleware/audit.js";
@@ -202,6 +202,27 @@ sessionsRouter.patch("/:id", logAudit("UPDATE", "session"), async (c) => {
 		}).catch(console.error);
 	}
 
+	// Auto-create payment record when session is marked completed
+	if (parsed.status === "completed") {
+		const [existingPayment] = await db
+			.select()
+			.from(payments)
+			.where(eq(payments.sessionId, updated.id))
+			.limit(1);
+
+		if (!existingPayment) {
+			await db.insert(payments).values({
+				therapistId: updated.therapistId,
+				clientId: updated.clientId,
+				sessionId: updated.id,
+				amountCents: 0,
+				currency: "USD",
+				status: "pending",
+				dueDate: new Date().toISOString().split("T")[0],
+			}).catch(console.error);
+		}
+	}
+
 	return c.json(updated);
 });
 
@@ -293,6 +314,119 @@ sessionsRouter.post("/:id/cancel", async (c) => {
 		emailHtml: email.html,
 		data: { type: "session_cancelled", sessionId: session.id },
 	}).catch(console.error);
+
+	return c.json(updated);
+});
+
+// Client proposes a reschedule
+sessionsRouter.post("/:id/propose-reschedule", async (c) => {
+	const id = c.req.param("id");
+	const user = c.get("user");
+	const body = await c.req.json();
+	const { startTime, endTime } = body;
+
+	if (!startTime || !endTime) {
+		return c.json({ error: "startTime and endTime are required" }, 400);
+	}
+
+	const [session] = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1);
+	if (!session) return c.json({ error: "Session not found" }, 404);
+
+	if (session.status !== "pending" && session.status !== "confirmed") {
+		return c.json({ error: "Cannot reschedule this session" }, 400);
+	}
+
+	// Store the proposal
+	const [updated] = await db
+		.update(sessions)
+		.set({
+			proposedStartTime: new Date(startTime),
+			proposedEndTime: new Date(endTime),
+			proposedBy: user.id,
+		})
+		.where(eq(sessions.id, id))
+		.returning();
+
+	// Notify the other participant
+	const otherUserId = user.id === session.therapistId ? session.clientId : session.therapistId;
+	const proposerName = await getUserName(user.id);
+
+	notifySessionParticipants({
+		therapistId: session.therapistId,
+		clientId: session.clientId,
+		excludeUserId: user.id,
+		title: "Reschedule Requested",
+		body: `${proposerName} proposed a new time for "${session.title}"`,
+		data: { type: "reschedule_proposed", sessionId: session.id },
+	}).catch(console.error);
+
+	return c.json(updated);
+});
+
+// Accept a reschedule proposal
+sessionsRouter.post("/:id/accept-reschedule", async (c) => {
+	const id = c.req.param("id");
+	const user = c.get("user");
+
+	const [session] = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1);
+	if (!session) return c.json({ error: "Session not found" }, 404);
+
+	if (!session.proposedStartTime || !session.proposedEndTime) {
+		return c.json({ error: "No reschedule proposal pending" }, 400);
+	}
+
+	// Only the person who didn't propose can accept
+	if (session.proposedBy === user.id) {
+		return c.json({ error: "You cannot accept your own proposal" }, 403);
+	}
+
+	const [updated] = await db
+		.update(sessions)
+		.set({
+			startTime: session.proposedStartTime,
+			endTime: session.proposedEndTime,
+			proposedStartTime: null,
+			proposedEndTime: null,
+			proposedBy: null,
+			status: "confirmed",
+		})
+		.where(eq(sessions.id, id))
+		.returning();
+
+	const accepterName = await getUserName(user.id);
+	notifySessionParticipants({
+		therapistId: session.therapistId,
+		clientId: session.clientId,
+		excludeUserId: user.id,
+		title: "Reschedule Accepted",
+		body: `${accepterName} accepted the new time for "${session.title}"`,
+		data: { type: "reschedule_accepted", sessionId: session.id },
+	}).catch(console.error);
+
+	return c.json(updated);
+});
+
+// Reject a reschedule proposal
+sessionsRouter.post("/:id/reject-reschedule", async (c) => {
+	const id = c.req.param("id");
+	const user = c.get("user");
+
+	const [session] = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1);
+	if (!session) return c.json({ error: "Session not found" }, 404);
+
+	if (!session.proposedStartTime || session.proposedBy === user.id) {
+		return c.json({ error: "Cannot reject" }, 400);
+	}
+
+	const [updated] = await db
+		.update(sessions)
+		.set({
+			proposedStartTime: null,
+			proposedEndTime: null,
+			proposedBy: null,
+		})
+		.where(eq(sessions.id, id))
+		.returning();
 
 	return c.json(updated);
 });

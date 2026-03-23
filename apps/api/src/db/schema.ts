@@ -100,6 +100,9 @@ export const sessions = pgTable("sessions", {
 	recurrenceRule: text("recurrence_rule"),
 	cancelledBy: uuid("cancelled_by").references(() => users.id),
 	cancelReason: text("cancel_reason"),
+	proposedStartTime: timestamp("proposed_start_time", { withTimezone: true }),
+	proposedEndTime: timestamp("proposed_end_time", { withTimezone: true }),
+	proposedBy: uuid("proposed_by").references(() => users.id),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true })
 		.notNull()

@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { H3, H4, Paragraph, Separator, XStack, YStack, Spinner } from "tamagui";
 import { Button, Card, Input } from "@therapysync/ui";
 import { useTherapistProfile, useSubmitReview } from "@/hooks/useDiscover";
-import { useRequestTherapist } from "@/hooks/useClients";
+import { useRequestTherapist, useClients } from "@/hooks/useClients";
 import { useAuthStore } from "@/lib/auth-store";
 import { Star } from "@tamagui/lucide-icons";
 
@@ -15,6 +15,9 @@ export default function TherapistProfileScreen() {
 	const { data: profile, isLoading } = useTherapistProfile(id);
 	const submitReview = useSubmitReview();
 	const requestTherapist = useRequestTherapist();
+	const { data: relationships } = useClients();
+
+	const relationshipStatus = relationships?.find((r) => r.therapist?.id === id)?.status ?? null;
 
 	const [rating, setRating] = useState(0);
 	const [comment, setComment] = useState("");
@@ -93,20 +96,30 @@ export default function TherapistProfileScreen() {
 					</Card>
 				)}
 
-				{/* Request services */}
+				{/* Request services / status */}
 				{role === "client" && (
-					<Button
-						variant="primary"
-						onPress={() => {
-							requestTherapist.mutate(profile.id, {
-								onSuccess: () => Alert.alert("Sent!", "Your request has been sent to the therapist."),
-								onError: (err) => Alert.alert("Error", err.message),
-							});
-						}}
-						disabled={requestTherapist.isPending}
-					>
-						{requestTherapist.isPending ? "Sending..." : "Request Services"}
-					</Button>
+					relationshipStatus === "active" ? (
+						<YStack backgroundColor="$green2" borderRadius="$3" padding="$3" borderWidth={1} borderColor="$green6">
+							<Paragraph color="$green10" fontWeight="600" textAlign="center">Already Connected</Paragraph>
+						</YStack>
+					) : relationshipStatus === "pending_approval" || relationshipStatus === "pending_invite" ? (
+						<YStack backgroundColor="$yellow2" borderRadius="$3" padding="$3" borderWidth={1} borderColor="$yellow6">
+							<Paragraph color="$yellow10" fontWeight="600" textAlign="center">Request Pending</Paragraph>
+						</YStack>
+					) : (
+						<Button
+							variant="primary"
+							onPress={() => {
+								requestTherapist.mutate(profile.id, {
+									onSuccess: () => Alert.alert("Sent!", "Your request has been sent to the therapist."),
+									onError: (err) => Alert.alert("Error", err.message),
+								});
+							}}
+							disabled={requestTherapist.isPending}
+						>
+							{requestTherapist.isPending ? "Sending..." : "Request Services"}
+						</Button>
+					)
 				)}
 
 				{/* Bio & Specializations */}

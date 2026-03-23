@@ -156,3 +156,45 @@ export function useSignNote() {
 		},
 	});
 }
+
+// --- Reschedule Proposals ---
+
+export function useProposeReschedule() {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: ({ id, startTime, endTime }: { id: string; startTime: string; endTime: string }) =>
+			api.post(`/sessions/${id}/propose-reschedule`, { startTime, endTime }),
+		onSuccess: (_, { id }) => {
+			queryClient.invalidateQueries({ queryKey: ["session", id] });
+			queryClient.invalidateQueries({ queryKey: ["sessions"] });
+		},
+	});
+}
+
+export function useAcceptReschedule() {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: (id: string) => api.post(`/sessions/${id}/accept-reschedule`, {}),
+		onSuccess: (_, id) => {
+			queryClient.invalidateQueries({ queryKey: ["session", id] });
+			queryClient.invalidateQueries({ queryKey: ["sessions"] });
+		},
+	});
+}
+
+export function useRejectReschedule() {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: (id: string) => api.post(`/sessions/${id}/reject-reschedule`, {}),
+		onSuccess: (_, id) => {
+			queryClient.invalidateQueries({ queryKey: ["session", id] });
+			queryClient.invalidateQueries({ queryKey: ["sessions"] });
+		},
+	});
+}

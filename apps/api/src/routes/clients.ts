@@ -1,5 +1,5 @@
 import { inviteClientSchema } from "@therapysync/shared";
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/index.js";
 import { payments, sessionNotes, sessions, therapistClients, users } from "../db/schema.js";
@@ -377,10 +377,35 @@ clients.get("/detail/:clientId", async (c) => {
 		}),
 	);
 
+	// Get last 5 payments for this client
+	const recentPayments = await db
+		.select({
+			id: payments.id,
+			amountCents: payments.amountCents,
+			currency: payments.currency,
+			status: payments.status,
+			dueDate: payments.dueDate,
+			paidAt: payments.paidAt,
+			sessionId: payments.sessionId,
+			createdAt: payments.createdAt,
+		})
+		.from(payments)
+		.where(and(eq(payments.therapistId, therapistId), eq(payments.clientId, actualClientId)))
+		.orderBy(desc(payments.createdAt))
+		.limit(5);
+
+	// Total payment count for "view more" logic
+	const [{ count: totalPayments }] = await db
+		.select({ count: sql<number>`count(*)::int` })
+		.from(payments)
+		.where(and(eq(payments.therapistId, therapistId), eq(payments.clientId, actualClientId)));
+
 	return c.json({
 		person,
 		relationship: rel,
 		sessions: sessionDetails,
+		recentPayments,
+		totalPayments,
 	});
 });
 
