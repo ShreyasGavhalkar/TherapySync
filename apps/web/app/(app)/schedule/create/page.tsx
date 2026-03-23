@@ -30,6 +30,7 @@ export default function CreateSessionPage() {
 	const [endTime, setEndTime] = useState(addHours(initialStart, 1));
 	const [location, setLocation] = useState("");
 	const [recurrence, setRecurrence] = useState("");
+	const [recurrenceCount, setRecurrenceCount] = useState(12);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 
@@ -62,7 +63,7 @@ export default function CreateSessionPage() {
 				startTime: startTime.toISOString(),
 				endTime: endTime.toISOString(),
 				location: location || null,
-				recurrenceRule: recurrence || null,
+				recurrenceRule: recurrence ? `${recurrence}:${recurrenceCount}` : null,
 			});
 			router.push("/schedule");
 		} catch (err: any) {
@@ -158,11 +159,20 @@ export default function CreateSessionPage() {
 				<div>
 					<label className="block text-sm font-medium text-gray-700 mb-1">Repeat</label>
 					<select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className={inputClass}>
-						<option value="">None</option>
-						<option value="weekly">Weekly (12 sessions)</option>
-						<option value="biweekly">Biweekly (12 sessions)</option>
-						<option value="monthly">Monthly (6 sessions)</option>
+						<option value="">Does not repeat</option>
+						<option value="daily">Every day</option>
+						<option value="weekly">Every week on {format(startTime, "EEEE")}</option>
+						<option value="biweekly">Every 2 weeks on {format(startTime, "EEEE")}</option>
+						<option value="monthly">Monthly on the {format(startTime, "do")}</option>
 					</select>
+					{recurrence && (
+						<div className="mt-2 flex items-center gap-3">
+							<span className="text-sm text-gray-600">Sessions:</span>
+							<button type="button" onClick={() => setRecurrenceCount((c) => Math.max(2, c - 1))} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-lg font-bold">−</button>
+							<span className="text-lg font-bold w-8 text-center">{recurrenceCount}</span>
+							<button type="button" onClick={() => setRecurrenceCount((c) => Math.min(52, c + 1))} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-lg font-bold">+</button>
+						</div>
+					)}
 				</div>
 
 				<div>

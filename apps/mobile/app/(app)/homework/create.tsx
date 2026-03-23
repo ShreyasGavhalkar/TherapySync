@@ -8,8 +8,10 @@ import { Button, Input } from "@therapysync/ui";
 import { useCreateHomework } from "@/hooks/useHomework";
 import { useClients } from "@/hooks/useClients";
 import { useAuthStore } from "@/lib/auth-store";
+import { useThemeColors } from "@/lib/useThemeColors";
 
 export default function CreateHomeworkScreen() {
+	const { bg } = useThemeColors();
 	const router = useRouter();
 	const userId = useAuthStore((s) => s.dbUser?.id);
 	const { data: clients } = useClients();
@@ -52,7 +54,7 @@ export default function CreateHomeworkScreen() {
 	};
 
 	return (
-		<ScrollView style={{ flex: 1, backgroundColor: "#fff" }}>
+		<ScrollView style={{ flex: 1, backgroundColor: bg }}>
 			<YStack padding="$4" gap="$4">
 				<H3>Assign Homework</H3>
 

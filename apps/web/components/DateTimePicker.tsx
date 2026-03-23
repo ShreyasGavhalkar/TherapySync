@@ -39,16 +39,16 @@ export default function DateTimePicker({ label, value, onChange }: Props) {
 
 	return (
 		<div>
-			<label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+			<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
 			<div className="grid grid-cols-2 gap-3">
 				{/* Date field */}
 				<div className="relative" ref={calRef}>
 					<button
 						type="button"
 						onClick={() => { setShowCalendar(!showCalendar); setShowTime(false); }}
-						className="w-full flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 text-left hover:border-gray-400 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-colors"
+						className="w-full flex items-center gap-2 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 text-left hover:border-gray-400 dark:hover:border-gray-500 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-colors bg-white dark:bg-gray-800"
 					>
-						<Calendar size={16} className="text-gray-400 shrink-0" />
+						<Calendar size={16} className="text-gray-400 dark:text-gray-500 shrink-0" />
 						<span>{displayDate}</span>
 					</button>
 
@@ -104,7 +104,7 @@ export default function DateTimePicker({ label, value, onChange }: Props) {
 					<button
 						type="button"
 						onClick={() => { setShowTime(!showTime); setShowCalendar(false); }}
-						className="w-full flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 text-left hover:border-gray-400 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-colors"
+						className="w-full flex items-center gap-2 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 text-left hover:border-gray-400 dark:hover:border-gray-500 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-colors bg-white dark:bg-gray-800"
 					>
 						<Clock size={16} className="text-gray-400 shrink-0" />
 						<span>{displayTime}</span>

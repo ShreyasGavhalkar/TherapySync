@@ -40,6 +40,7 @@ export const authMiddleware = createMiddleware(async (c: Context, next: Next) =>
 		throw new HTTPException(401, { message: "Invalid token" });
 	}
 
+	// Look up by clerk_id
 	let [user] = await db
 		.select({
 			id: users.id,
@@ -52,7 +53,7 @@ export const authMiddleware = createMiddleware(async (c: Context, next: Next) =>
 		.limit(1);
 
 	if (!user) {
-		// Auto-provision user from Clerk (fallback when webhook can't reach localhost)
+		// Auto-provision user from Clerk
 		try {
 			const clerk = createClerkClient({ secretKey });
 			const clerkUser = await clerk.users.getUser(payload.sub);
@@ -61,54 +62,53 @@ export const authMiddleware = createMiddleware(async (c: Context, next: Next) =>
 				throw new HTTPException(400, { message: "No email on Clerk account" });
 			}
 
-			// Read role + details from Clerk unsafeMetadata (set during sign-up)
 			const metadata = clerkUser.unsafeMetadata as { role?: string; phone?: string; address?: string; certification?: string } | undefined;
 			const role = metadata?.role === "therapist" ? "therapist" : "client";
 			const phone = metadata?.phone ?? clerkUser.phoneNumbers[0]?.phoneNumber ?? null;
 
-			// Check if a user with this email already exists (e.g., from a previous Clerk account)
-			const [existingByEmail] = await db
-				.select({ id: users.id, clerkId: users.clerkId, email: users.email, role: users.role })
-				.from(users)
-				.where(eq(users.email, email))
-				.limit(1);
-
-			let newUser;
-			if (existingByEmail) {
-				// Update the clerk_id to the new Clerk account
-				[newUser] = await db
-					.update(users)
-					.set({
-						clerkId: clerkUser.id,
-						firstName: clerkUser.firstName ?? existingByEmail.clerkId,
-						lastName: clerkUser.lastName ?? "",
-						phone: phone ?? undefined,
-						avatarUrl: clerkUser.imageUrl,
-					})
-					.where(eq(users.id, existingByEmail.id))
-					.returning({ id: users.id, clerkId: users.clerkId, email: users.email, role: users.role });
-			} else {
-				[newUser] = await db
-					.insert(users)
-					.values({
-						clerkId: clerkUser.id,
+			// Upsert: insert or update on clerk_id OR email conflict
+			const [upserted] = await db
+				.insert(users)
+				.values({
+					clerkId: clerkUser.id,
+					email,
+					firstName: clerkUser.firstName ?? "",
+					lastName: clerkUser.lastName ?? "",
+					phone,
+					avatarUrl: clerkUser.imageUrl,
+					role,
+					city: metadata?.address ?? null,
+					specializations: metadata?.certification ?? null,
+				})
+				.onConflictDoUpdate({
+					target: users.clerkId,
+					set: {
 						email,
 						firstName: clerkUser.firstName ?? "",
 						lastName: clerkUser.lastName ?? "",
 						phone,
 						avatarUrl: clerkUser.imageUrl,
-						role,
-						city: metadata?.address ?? null,
-						specializations: metadata?.certification ?? null,
-					})
+					},
+				})
+				.returning({ id: users.id, clerkId: users.clerkId, email: users.email, role: users.role });
+
+			if (!upserted) {
+				// If clerk_id didn't conflict, maybe email did — try updating by email
+				const [byEmail] = await db
+					.update(users)
+					.set({ clerkId: clerkUser.id, firstName: clerkUser.firstName ?? "", lastName: clerkUser.lastName ?? "", phone, avatarUrl: clerkUser.imageUrl })
+					.where(eq(users.email, email))
 					.returning({ id: users.id, clerkId: users.clerkId, email: users.email, role: users.role });
+				user = byEmail;
+			} else {
+				user = upserted;
 			}
 
-			if (newUser && !existingByEmail) {
-				await db.insert(notificationPreferences).values({ userId: newUser.id }).onConflictDoNothing();
+			// Ensure notification preferences exist
+			if (user) {
+				await db.insert(notificationPreferences).values({ userId: user.id }).onConflictDoNothing();
 			}
 
-			user = newUser;
 			console.log(`Auto-provisioned user ${email} as ${role}`);
 		} catch (error) {
 			if (error instanceof HTTPException) throw error;

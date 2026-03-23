@@ -28,7 +28,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center">
+			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
 				<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
 			</div>
 		);
@@ -38,7 +38,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 		<UserProvider user={user}>
 			<div className="flex min-h-screen">
 				<Sidebar role={user?.role ?? "client"} />
-				<main className="flex-1 p-8 overflow-auto">{children}</main>
+				<main className="flex-1 p-8 overflow-auto bg-gray-50 dark:bg-gray-900">{children}</main>
 			</div>
 		</UserProvider>
 	);

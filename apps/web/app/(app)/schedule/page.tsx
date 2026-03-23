@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from "date-fns";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, setMonth, setYear } from "date-fns";
 import { useApi } from "@/lib/hooks";
 import { useUser } from "@/lib/user-context";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
@@ -23,6 +23,8 @@ export default function SchedulePage() {
 	const [currentMonth, setCurrentMonth] = useState(new Date());
 	const [sessions, setSessions] = useState<Session[]>([]);
 	const [selectedDate, setSelectedDate] = useState(new Date());
+	const [showMonthPicker, setShowMonthPicker] = useState(false);
+	const monthPickerRef = useRef<HTMLDivElement>(null);
 
 	const fetchSessions = useCallback(async () => {
 		const from = startOfMonth(currentMonth).toISOString();
@@ -34,6 +36,20 @@ export default function SchedulePage() {
 	useEffect(() => {
 		fetchSessions().catch(console.error);
 	}, [fetchSessions]);
+
+	useEffect(() => {
+		const handler = (e: MouseEvent) => {
+			if (monthPickerRef.current && !monthPickerRef.current.contains(e.target as Node)) {
+				setShowMonthPicker(false);
+			}
+		};
+		document.addEventListener("mousedown", handler);
+		return () => document.removeEventListener("mousedown", handler);
+	}, []);
+
+	const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+	const currentYear = currentMonth.getFullYear();
+	const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
 
 	const days = eachDayOfInterval({
 		start: startOfMonth(currentMonth),
@@ -62,11 +78,61 @@ export default function SchedulePage() {
 				{/* Calendar */}
 				<div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6">
 					<div className="flex items-center justify-between mb-4">
-						<button type="button" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-2 hover:bg-gray-100 rounded-lg">
+						<button type="button" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
 							<ChevronLeft size={20} />
 						</button>
-						<h2 className="text-lg font-semibold">{format(currentMonth, "MMMM yyyy")}</h2>
-						<button type="button" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2 hover:bg-gray-100 rounded-lg">
+						<div className="relative" ref={monthPickerRef}>
+							<button
+								type="button"
+								onClick={() => setShowMonthPicker((v) => !v)}
+								className="text-lg font-semibold hover:text-primary transition-colors px-3 py-1 rounded-lg hover:bg-primary/5"
+							>
+								{format(currentMonth, "MMMM yyyy")}
+							</button>
+
+							{showMonthPicker && (
+								<div className="absolute z-50 top-full mt-2 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-4 w-72">
+									{/* Year selector */}
+									<div className="flex items-center justify-between mb-3">
+										<button type="button" onClick={() => setCurrentMonth(setYear(currentMonth, currentYear - 1))} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+											<ChevronLeft size={16} />
+										</button>
+										<span className="font-semibold">{currentYear}</span>
+										<button type="button" onClick={() => setCurrentMonth(setYear(currentMonth, currentYear + 1))} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+											<ChevronRight size={16} />
+										</button>
+									</div>
+
+									{/* Month grid */}
+									<div className="grid grid-cols-3 gap-1">
+										{months.map((m, i) => {
+											const isSelected = currentMonth.getMonth() === i;
+											const isCurrent = new Date().getMonth() === i && currentYear === new Date().getFullYear();
+											return (
+												<button
+													key={m}
+													type="button"
+													onClick={() => {
+														setCurrentMonth(setMonth(currentMonth, i));
+														setShowMonthPicker(false);
+													}}
+													className={`py-2 px-1 rounded-lg text-sm transition-colors ${
+														isSelected
+															? "bg-primary text-white"
+															: isCurrent
+																? "bg-primary/10 text-primary font-medium"
+																: "hover:bg-gray-100 dark:hover:bg-gray-700"
+													}`}
+												>
+													{m.slice(0, 3)}
+												</button>
+											);
+										})}
+									</div>
+								</div>
+							)}
+						</div>
+						<button type="button" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
 							<ChevronRight size={20} />
 						</button>
 					</div>

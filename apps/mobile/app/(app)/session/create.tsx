@@ -10,6 +10,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "@/lib/api";
 import { Check } from "@tamagui/lucide-icons";
+import { useThemeColors } from "@/lib/useThemeColors";
 
 type ClientRelationship = {
 	id: string;
@@ -24,6 +25,7 @@ function formatDate(d: Date) {
 }
 
 export default function CreateSessionScreen() {
+	const { bg } = useThemeColors();
 	const { date } = useLocalSearchParams<{ date?: string }>();
 	const router = useRouter();
 	const role = useAuthStore((s) => s.dbUser?.role);
@@ -45,6 +47,8 @@ export default function CreateSessionScreen() {
 	const [showEndDate, setShowEndDate] = useState(false);
 	const [showEndTime, setShowEndTime] = useState(false);
 	const [recurrence, setRecurrence] = useState<string | null>(null);
+	const [recurrenceCount, setRecurrenceCount] = useState("12");
+	const [showRecurrencePicker, setShowRecurrencePicker] = useState(false);
 
 	const createSession = useCreateSession();
 
@@ -87,7 +91,7 @@ export default function CreateSessionScreen() {
 				endTime,
 				status: "pending",
 				location: location.trim() || null,
-				recurrenceRule: recurrence,
+				recurrenceRule: recurrence ? `${recurrence}:${recurrenceCount}` : null,
 			},
 			{
 				onSuccess: () => router.back(),
@@ -97,7 +101,7 @@ export default function CreateSessionScreen() {
 	};
 
 	return (
-		<ScrollView style={{ flex: 1, backgroundColor: "#fff" }}>
+		<ScrollView style={{ flex: 1, backgroundColor: bg }}>
 			<YStack padding="$4" gap="$4">
 				<H3>New Session</H3>
 
@@ -288,31 +292,99 @@ export default function CreateSessionScreen() {
 				{/* Recurrence */}
 				<YStack gap="$2">
 					<Paragraph fontWeight="600">Repeat</Paragraph>
-					<XStack gap="$2" flexWrap="wrap">
-						{[
-							{ value: null, label: "None" },
-							{ value: "weekly", label: "Weekly" },
-							{ value: "biweekly", label: "Biweekly" },
-							{ value: "monthly", label: "Monthly" },
-						].map((opt) => (
-							<Pressable key={opt.label} onPress={() => setRecurrence(opt.value)}>
-								<YStack
-									padding="$2"
-									paddingHorizontal="$3"
-									borderRadius="$3"
-									borderWidth={2}
-									borderColor={recurrence === opt.value ? "$blue8" : "$borderColor"}
-									backgroundColor={recurrence === opt.value ? "$blue2" : "$background"}
+					<Pressable onPress={() => setShowRecurrencePicker((v) => !v)}>
+						<XStack
+							padding="$3"
+							borderRadius="$3"
+							backgroundColor="$color2"
+							justifyContent="space-between"
+							alignItems="center"
+						>
+							<Paragraph color="$color">
+								{recurrence
+									? recurrence === "daily"
+										? `Every day, ${recurrenceCount} times`
+										: recurrence === "weekly"
+											? `Every ${format(startTime, "EEEE")}, ${recurrenceCount} times`
+											: recurrence === "biweekly"
+												? `Every 2 weeks on ${format(startTime, "EEEE")}, ${recurrenceCount} times`
+												: `Monthly on the ${format(startTime, "do")}, ${recurrenceCount} times`
+									: "Does not repeat"}
+							</Paragraph>
+							<Paragraph color="$color10" fontSize="$2">Change</Paragraph>
+						</XStack>
+					</Pressable>
+
+					{showRecurrencePicker && (
+						<YStack backgroundColor="$color2" borderRadius="$4" padding="$3" gap="$1">
+							{[
+								{ value: null, label: "Does not repeat" },
+								{ value: "daily", label: "Every day" },
+								{ value: "weekly", label: `Every week on ${format(startTime, "EEEE")}` },
+								{ value: "biweekly", label: `Every 2 weeks on ${format(startTime, "EEEE")}` },
+								{ value: "monthly", label: `Monthly on the ${format(startTime, "do")}` },
+							].map((opt) => (
+								<Pressable
+									key={opt.label}
+									onPress={() => {
+										setRecurrence(opt.value);
+										if (!opt.value) setShowRecurrencePicker(false);
+									}}
 								>
-									<Paragraph fontSize="$3">{opt.label}</Paragraph>
+									<XStack
+										padding="$3"
+										borderRadius="$3"
+										backgroundColor={recurrence === opt.value ? "$blue3" : "transparent"}
+										alignItems="center"
+										gap="$2"
+									>
+										<YStack
+											width={20}
+											height={20}
+											borderRadius={10}
+											borderWidth={2}
+											borderColor={recurrence === opt.value ? "$blue10" : "$color8"}
+											backgroundColor={recurrence === opt.value ? "$blue10" : "transparent"}
+										/>
+										<Paragraph
+											color={recurrence === opt.value ? "$blue11" : "$color"}
+											fontWeight={recurrence === opt.value ? "600" : "400"}
+										>
+											{opt.label}
+										</Paragraph>
+									</XStack>
+								</Pressable>
+							))}
+
+							{recurrence && (
+								<YStack padding="$3" gap="$2">
+									<Paragraph color="$color11" fontSize="$3" fontWeight="600">
+										Number of sessions
+									</Paragraph>
+									<XStack alignItems="center" gap="$3">
+										<Pressable onPress={() => setRecurrenceCount((c) => String(Math.max(2, Number(c) - 1)))}>
+											<YStack width={36} height={36} borderRadius={18} backgroundColor="$color4" alignItems="center" justifyContent="center">
+												<Paragraph fontWeight="700" fontSize="$5" color="$color">−</Paragraph>
+											</YStack>
+										</Pressable>
+										<Paragraph fontSize="$6" fontWeight="700" color="$color" minWidth={40} textAlign="center">
+											{recurrenceCount}
+										</Paragraph>
+										<Pressable onPress={() => setRecurrenceCount((c) => String(Math.min(52, Number(c) + 1)))}>
+											<YStack width={36} height={36} borderRadius={18} backgroundColor="$color4" alignItems="center" justifyContent="center">
+												<Paragraph fontWeight="700" fontSize="$5" color="$color">+</Paragraph>
+											</YStack>
+										</Pressable>
+									</XStack>
+								</YStack>
+							)}
+
+							<Pressable onPress={() => setShowRecurrencePicker(false)}>
+								<YStack padding="$2" alignItems="center">
+									<Paragraph color="$blue10" fontWeight="600">Done</Paragraph>
 								</YStack>
 							</Pressable>
-						))}
-					</XStack>
-					{recurrence && (
-						<Paragraph color="$gray9" fontSize="$2">
-							{recurrence === "weekly" ? "12 sessions" : recurrence === "biweekly" ? "12 sessions" : "6 sessions"} will be created
-						</Paragraph>
+						</YStack>
 					)}
 				</YStack>
 

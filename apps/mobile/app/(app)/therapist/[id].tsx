@@ -8,8 +8,10 @@ import { useTherapistProfile, useSubmitReview } from "@/hooks/useDiscover";
 import { useRequestTherapist, useClients } from "@/hooks/useClients";
 import { useAuthStore } from "@/lib/auth-store";
 import { Star } from "@tamagui/lucide-icons";
+import { useThemeColors } from "@/lib/useThemeColors";
 
 export default function TherapistProfileScreen() {
+	const { bg } = useThemeColors();
 	const { id } = useLocalSearchParams<{ id: string }>();
 	const role = useAuthStore((s) => s.dbUser?.role);
 	const { data: profile, isLoading } = useTherapistProfile(id);
@@ -49,7 +51,7 @@ export default function TherapistProfileScreen() {
 	};
 
 	return (
-		<ScrollView style={{ flex: 1, backgroundColor: "#fff" }}>
+		<ScrollView style={{ flex: 1, backgroundColor: bg }}>
 			<YStack padding="$4" gap="$4">
 				{/* Header */}
 				<YStack alignItems="center" gap="$2">

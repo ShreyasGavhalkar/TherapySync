@@ -2,8 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { H3, Paragraph, XStack, YStack, Spinner } from "tamagui";
 import { Card } from "@therapysync/ui";
 import { useApiClient } from "@/lib/api";
+import { useThemeColors } from "@/lib/useThemeColors";
 
 export default function DashboardScreen() {
+	const { bg } = useThemeColors();
 	const api = useApiClient();
 
 	const { data: stats, isLoading } = useQuery({
@@ -23,7 +25,7 @@ export default function DashboardScreen() {
 	}
 
 	return (
-		<YStack flex={1} padding="$4" gap="$4" backgroundColor="$background">
+		<YStack flex={1} padding="$4" gap="$4" style={{ backgroundColor: bg }}>
 			<H3>Admin Dashboard</H3>
 
 			<XStack gap="$3" flexWrap="wrap">

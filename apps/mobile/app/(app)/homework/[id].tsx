@@ -8,6 +8,7 @@ import { Button, Badge, Card, Input } from "@therapysync/ui";
 import { useHomeworkDetail, useSubmitHomework, useUpdateHomework } from "@/hooks/useHomework";
 import { useAuthStore } from "@/lib/auth-store";
 import { useUploadFile } from "@/hooks/useFiles";
+import { useThemeColors } from "@/lib/useThemeColors";
 
 const statusColors = {
 	assigned: "info",
@@ -18,6 +19,7 @@ const statusColors = {
 } as const;
 
 export default function HomeworkDetailScreen() {
+	const { bg } = useThemeColors();
 	const { id } = useLocalSearchParams<{ id: string }>();
 	const role = useAuthStore((s) => s.dbUser?.role);
 	const { data: homework, isLoading } = useHomeworkDetail(id);
@@ -85,7 +87,7 @@ export default function HomeworkDetailScreen() {
 	};
 
 	return (
-		<ScrollView style={{ flex: 1, backgroundColor: "#fff" }}>
+		<ScrollView style={{ flex: 1, backgroundColor: bg }}>
 			<YStack padding="$4" gap="$4">
 				<XStack justifyContent="space-between" alignItems="center">
 					<H3 flex={1}>{homework.title}</H3>

@@ -1,13 +1,14 @@
 import { useCallback, useMemo, useState } from "react";
-import { FlatList, Pressable } from "react-native";
+import { FlatList, Platform, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import { format, parseISO, startOfMonth, endOfMonth, addMonths } from "date-fns";
-import { Calendar, type DateData } from "react-native-calendars";
+import { format, parseISO, addDays, subDays, startOfDay, endOfDay } from "date-fns";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { H4, Paragraph, XStack, YStack, Spinner } from "tamagui";
-import { Plus } from "@tamagui/lucide-icons";
-import { Badge, Card } from "@therapysync/ui";
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "@tamagui/lucide-icons";
+import { Badge, Card, Button } from "@therapysync/ui";
 import { useSessions } from "@/hooks/useSessions";
 import { useAuthStore } from "@/lib/auth-store";
+import { useThemeColors } from "@/lib/useThemeColors";
 import type { Session } from "@therapysync/shared";
 
 const statusColors = {
@@ -18,65 +19,29 @@ const statusColors = {
 	no_show: "neutral",
 } as const;
 
-const dotColors: Record<string, string> = {
-	pending: "#f59e0b",
-	confirmed: "#22c55e",
-	cancelled: "#ef4444",
-	completed: "#3b82f6",
-	no_show: "#9ca3af",
-};
-
 export default function ScheduleScreen() {
+	const { bg, isDark } = useThemeColors();
 	const router = useRouter();
 	const role = useAuthStore((s) => s.dbUser?.role);
-	const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
-	const [currentMonth, setCurrentMonth] = useState(new Date());
+	const isTherapist = role === "therapist" || role === "admin";
 
-	const from = startOfMonth(currentMonth).toISOString();
-	const to = endOfMonth(addMonths(currentMonth, 0)).toISOString();
+	const [selectedDate, setSelectedDate] = useState(new Date());
+	const [showDatePicker, setShowDatePicker] = useState(false);
 
-	const { data: sessions, isLoading } = useSessions({ from, to });
+	const from = startOfDay(selectedDate).toISOString();
+	const to = endOfDay(selectedDate).toISOString();
 
-	// Build marked dates for the calendar
-	const markedDates = useMemo(() => {
-		const marks: Record<string, { dots: Array<{ key: string; color: string }>; selected?: boolean; selectedColor?: string }> = {};
+	const { data: sessions, isLoading, refetch } = useSessions({ from, to });
 
-		for (const session of sessions ?? []) {
-			const dateKey = format(new Date(session.startTime), "yyyy-MM-dd");
-			if (!marks[dateKey]) {
-				marks[dateKey] = { dots: [] };
-			}
-			marks[dateKey].dots.push({
-				key: session.id,
-				color: dotColors[session.status] ?? "#9ca3af",
-			});
-		}
+	const goBack = () => setSelectedDate((d) => subDays(d, 1));
+	const goForward = () => setSelectedDate((d) => addDays(d, 1));
+	const goToday = () => setSelectedDate(new Date());
 
-		// Mark selected date
-		if (marks[selectedDate]) {
-			marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: "#6C63FF" };
-		} else {
-			marks[selectedDate] = { dots: [], selected: true, selectedColor: "#6C63FF" };
-		}
+	const isToday = format(selectedDate, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
 
-		return marks;
-	}, [sessions, selectedDate]);
-
-	// Filter sessions for selected date
-	const selectedSessions = useMemo(() => {
-		return (sessions ?? []).filter((s) => {
-			const dateKey = format(new Date(s.startTime), "yyyy-MM-dd");
-			return dateKey === selectedDate;
-		});
-	}, [sessions, selectedDate]);
-
-	const handleDayPress = useCallback((day: DateData) => {
-		setSelectedDate(day.dateString);
-	}, []);
-
-	const handleMonthChange = useCallback((month: DateData) => {
-		setCurrentMonth(new Date(month.dateString));
-	}, []);
+	const dateLabel = isToday
+		? "Today"
+		: format(selectedDate, "EEEE");
 
 	const renderSession = useCallback(
 		({ item }: { item: Session }) => (
@@ -84,18 +49,19 @@ export default function ScheduleScreen() {
 				<Card marginBottom="$2">
 					<XStack justifyContent="space-between" alignItems="center">
 						<YStack flex={1}>
-							<H4>{item.title}</H4>
-							<Paragraph color="$gray10" fontSize="$3">
-								{format(new Date(item.startTime), "h:mm a")} —{" "}
-								{format(new Date(item.endTime), "h:mm a")}
+							<Paragraph fontWeight="600" fontSize="$5" color="$color">
+								{item.title}
+							</Paragraph>
+							<Paragraph color="$color11" fontSize="$3" marginTop="$1">
+								{format(new Date(item.startTime), "h:mm a")} — {format(new Date(item.endTime), "h:mm a")}
 							</Paragraph>
 							{item.location && (
-								<Paragraph color="$gray9" fontSize="$2">
+								<Paragraph color="$color10" fontSize="$2" marginTop="$1">
 									{item.location}
 								</Paragraph>
 							)}
 						</YStack>
-						<Badge status={statusColors[item.status]}>{item.status}</Badge>
+						<Badge status={statusColors[item.status]}>{item.status.replace("_", " ")}</Badge>
 					</XStack>
 				</Card>
 			</Pressable>
@@ -104,61 +70,92 @@ export default function ScheduleScreen() {
 	);
 
 	return (
-		<YStack flex={1} backgroundColor="$background">
-			<Calendar
-				current={format(currentMonth, "yyyy-MM-dd")}
-				onDayPress={handleDayPress}
-				onMonthChange={handleMonthChange}
-				markingType="multi-dot"
-				markedDates={markedDates}
-				theme={{
-					todayTextColor: "#6C63FF",
-					arrowColor: "#6C63FF",
-					selectedDayBackgroundColor: "#6C63FF",
-				}}
-			/>
+		<YStack flex={1} style={{ backgroundColor: bg }}>
+			{/* Date header */}
+			<YStack padding="$4" gap="$3">
+				<XStack justifyContent="space-between" alignItems="center">
+					<YStack>
+						<Paragraph fontSize="$3" color="$color10" fontWeight="600">
+							{dateLabel}
+						</Paragraph>
+						<Paragraph fontSize="$7" fontWeight="700" color="$color">
+							{format(selectedDate, "d MMMM yyyy")}
+						</Paragraph>
+					</YStack>
 
-			<YStack flex={1} padding="$3">
-				<XStack justifyContent="space-between" alignItems="center" marginBottom="$2">
-					<H4>{format(parseISO(selectedDate), "EEEE, MMM d")}</H4>
-					{role !== "client" && (
-						<Pressable
-							onPress={() => router.push(`/(app)/session/create?date=${selectedDate}`)}
-						>
-							<XStack
-								backgroundColor="$primary"
-								paddingHorizontal="$3"
-								paddingVertical="$2"
-								borderRadius="$3"
-								alignItems="center"
-								gap="$1"
-							>
-								<Plus size={16} color="white" />
-								<Paragraph color="white" fontSize="$3" fontWeight="600">
-									New
-								</Paragraph>
-							</XStack>
+					<XStack gap="$2" alignItems="center">
+						<Pressable onPress={goBack}>
+							<YStack padding="$2" borderRadius="$3" backgroundColor="$color3">
+								<ChevronLeft size={20} color="$color" />
+							</YStack>
 						</Pressable>
-					)}
+
+						<Pressable onPress={() => setShowDatePicker((v) => !v)}>
+							<YStack padding="$2" borderRadius="$3" backgroundColor="$color3">
+								<CalendarIcon size={20} color="$blue10" />
+							</YStack>
+						</Pressable>
+
+						<Pressable onPress={goForward}>
+							<YStack padding="$2" borderRadius="$3" backgroundColor="$color3">
+								<ChevronRight size={20} color="$color" />
+							</YStack>
+						</Pressable>
+					</XStack>
 				</XStack>
 
-				{isLoading ? (
-					<YStack flex={1} justifyContent="center" alignItems="center">
-						<Spinner color="$primary" />
-					</YStack>
-				) : (
-					<FlatList
-						data={selectedSessions}
-						keyExtractor={(item) => item.id}
-						renderItem={renderSession}
-						ListEmptyComponent={
-							<YStack padding="$4" alignItems="center">
-								<Paragraph color="$gray10">No sessions on this day</Paragraph>
-							</YStack>
-						}
-					/>
+				{!isToday && (
+					<Pressable onPress={goToday}>
+						<Paragraph color="$blue10" fontSize="$3" fontWeight="600">
+							Go to today
+						</Paragraph>
+					</Pressable>
+				)}
+
+				{isTherapist && (
+					<Button
+						variant="primary"
+						onPress={() => router.push(`/(app)/session/create?date=${format(selectedDate, "yyyy-MM-dd")}`)}
+						icon={<Plus size={18} color="white" />}
+					>
+						New Session
+					</Button>
 				)}
 			</YStack>
+
+			{showDatePicker && (
+				<DateTimePicker
+					value={selectedDate}
+					mode="date"
+					display={Platform.OS === "ios" ? "inline" : "default"}
+					onChange={(_, date) => {
+						setShowDatePicker(Platform.OS === "ios");
+						if (date) setSelectedDate(date);
+					}}
+					themeVariant={isDark ? "dark" : "light"}
+				/>
+			)}
+
+			{/* Sessions list */}
+			{isLoading ? (
+				<YStack flex={1} justifyContent="center" alignItems="center">
+					<Spinner color="$blue10" />
+				</YStack>
+			) : (
+				<FlatList
+					data={sessions ?? []}
+					keyExtractor={(item) => item.id}
+					renderItem={renderSession}
+					contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+					ListEmptyComponent={
+						<YStack padding="$6" alignItems="center">
+							<Paragraph color="$color10" fontSize="$4">
+								No sessions on this day
+							</Paragraph>
+						</YStack>
+					}
+				/>
+			)}
 		</YStack>
 	);
 }

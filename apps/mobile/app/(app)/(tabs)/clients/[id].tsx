@@ -1,4 +1,4 @@
-import { ScrollView, Pressable } from "react-native";
+import { Pressable, ScrollView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -6,7 +6,7 @@ import { H3, H4, Paragraph, Separator, XStack, YStack, Spinner } from "tamagui";
 import { Badge, Card } from "@therapysync/ui";
 import { useApiClient } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
-import { FileText, DollarSign } from "@tamagui/lucide-icons";
+import { FileText, DollarSign, ArrowLeft } from "@tamagui/lucide-icons";
 import { useThemeColors } from "@/lib/useThemeColors";
 
 type SessionDetail = {
@@ -95,8 +95,16 @@ export default function ClientDetailScreen() {
 	const pastSessions = sessions.filter((s) => s.status === "completed" || s.status === "cancelled" || s.status === "no_show");
 
 	return (
-		<ScrollView style={{ flex: 1, backgroundColor: bg }}>
+		<ScrollView style={{ flex: 1, backgroundColor: bg }} contentContainerStyle={{ paddingBottom: 100 }}>
 			<YStack padding="$4" gap="$4">
+				{/* Back button */}
+				<Pressable onPress={() => router.back()}>
+					<XStack alignItems="center" gap="$2" paddingVertical="$2">
+						<ArrowLeft size={20} color="$blue10" />
+						<Paragraph color="$blue10" fontWeight="600">Back</Paragraph>
+					</XStack>
+				</Pressable>
+
 				{/* Person header */}
 				<Card>
 					<YStack alignItems="center" gap="$2" padding="$2">

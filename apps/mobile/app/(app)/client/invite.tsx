@@ -4,8 +4,10 @@ import { useRouter } from "expo-router";
 import { H3, Paragraph, YStack } from "tamagui";
 import { Button, Input } from "@therapysync/ui";
 import { useInviteClient } from "@/hooks/useClients";
+import { useThemeColors } from "@/lib/useThemeColors";
 
 export default function InviteClientScreen() {
+	const { bg } = useThemeColors();
 	const router = useRouter();
 	const inviteClient = useInviteClient();
 
@@ -44,7 +46,7 @@ export default function InviteClientScreen() {
 	};
 
 	return (
-		<ScrollView style={{ flex: 1, backgroundColor: "#fff" }}>
+		<ScrollView style={{ flex: 1, backgroundColor: bg }}>
 			<YStack padding="$4" gap="$4">
 				<H3>Invite Client</H3>
 				<Paragraph color="$gray10">

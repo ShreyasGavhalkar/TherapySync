@@ -8,8 +8,10 @@ import { Button, Input } from "@therapysync/ui";
 import { useCreatePayment } from "@/hooks/usePayments";
 import { useClients } from "@/hooks/useClients";
 import { useAuthStore } from "@/lib/auth-store";
+import { useThemeColors } from "@/lib/useThemeColors";
 
 export default function CreatePaymentScreen() {
+	const { bg } = useThemeColors();
 	const router = useRouter();
 	const userId = useAuthStore((s) => s.dbUser?.id);
 	const { data: clients } = useClients();
@@ -54,7 +56,7 @@ export default function CreatePaymentScreen() {
 	};
 
 	return (
-		<ScrollView style={{ flex: 1, backgroundColor: "#fff" }}>
+		<ScrollView style={{ flex: 1, backgroundColor: bg }}>
 			<YStack padding="$4" gap="$4">
 				<H3>Record Payment</H3>
 

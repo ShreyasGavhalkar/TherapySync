@@ -5,6 +5,7 @@ import { Card, Badge, Button } from "@therapysync/ui";
 import { useHomework } from "@/hooks/useHomework";
 import { useAuthStore } from "@/lib/auth-store";
 import { useState } from "react";
+import { useThemeColors } from "@/lib/useThemeColors";
 
 const statusColors = {
 	assigned: "info",
@@ -15,6 +16,7 @@ const statusColors = {
 } as const;
 
 export default function HomeworkScreen() {
+	const { bg } = useThemeColors();
 	const router = useRouter();
 	const role = useAuthStore((s) => s.dbUser?.role);
 	const [refreshing, setRefreshing] = useState(false);
@@ -37,7 +39,7 @@ export default function HomeworkScreen() {
 	}
 
 	return (
-		<YStack flex={1} backgroundColor="$background">
+		<YStack flex={1} style={{ backgroundColor: bg }}>
 			{isTherapist && (
 				<YStack padding="$4" paddingBottom={0}>
 					<Button variant="primary" onPress={() => router.push("/(app)/homework/create")}>
@@ -48,7 +50,7 @@ export default function HomeworkScreen() {
 			<FlatList
 				data={assignments ?? []}
 				keyExtractor={(item) => item.id}
-				contentContainerStyle={{ padding: 16, gap: 12 }}
+				contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 100 }}
 				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
 				ListEmptyComponent={
 					<YStack padding="$6" alignItems="center">

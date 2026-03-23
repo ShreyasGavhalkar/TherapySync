@@ -15,6 +15,7 @@ import {
 	useSignNote,
 } from "@/hooks/useSessions";
 import { useAuthStore } from "@/lib/auth-store";
+import { useThemeColors } from "@/lib/useThemeColors";
 
 const statusColors = {
 	pending: "warning",
@@ -25,6 +26,7 @@ const statusColors = {
 } as const;
 
 export default function SessionDetailScreen() {
+	const { bg } = useThemeColors();
 	const { id } = useLocalSearchParams<{ id: string }>();
 	const router = useRouter();
 	const role = useAuthStore((s) => s.dbUser?.role);
@@ -114,7 +116,7 @@ export default function SessionDetailScreen() {
 	};
 
 	return (
-		<ScrollView style={{ flex: 1, backgroundColor: "#fff" }}>
+		<ScrollView style={{ flex: 1, backgroundColor: bg }}>
 			<YStack padding="$4" gap="$4">
 				<XStack justifyContent="space-between" alignItems="center">
 					<H3 flex={1}>{session.title}</H3>

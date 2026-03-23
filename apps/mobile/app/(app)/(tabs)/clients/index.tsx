@@ -4,12 +4,14 @@ import { Paragraph, XStack, YStack, Spinner } from "tamagui";
 import { Card, Badge, Button, Input } from "@therapysync/ui";
 import { useClients, useAcceptRelationship, useRejectRelationship, type ClientRelationship } from "@/hooks/useClients";
 import { useAuthStore } from "@/lib/auth-store";
+import { useThemeColors } from "@/lib/useThemeColors";
 import { useState, useMemo } from "react";
 import { ChevronRight } from "@tamagui/lucide-icons";
 
 type Tab = "requests" | "active";
 
 export default function ClientsScreen() {
+	const { bg } = useThemeColors();
 	const router = useRouter();
 	const role = useAuthStore((s) => s.dbUser?.role);
 	const userId = useAuthStore((s) => s.dbUser?.id);
@@ -68,7 +70,7 @@ export default function ClientsScreen() {
 	}
 
 	return (
-		<YStack flex={1} backgroundColor="$background">
+		<YStack flex={1} style={{ backgroundColor: bg }}>
 			{/* Tab bar */}
 			<XStack borderBottomWidth={1} borderColor="$borderColor">
 				<Pressable onPress={() => setTab("active")} style={{ flex: 1 }}>
@@ -109,7 +111,7 @@ export default function ClientsScreen() {
 			<FlatList
 				data={currentList}
 				keyExtractor={(item) => item.id}
-				contentContainerStyle={{ padding: 16, gap: 12 }}
+				contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 100 }}
 				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
 				ListHeaderComponent={
 					isTherapist && tab === "active" ? (
@@ -165,7 +167,7 @@ export default function ClientsScreen() {
 
 					// Active — tappable
 					return (
-						<Pressable onPress={() => router.push(`/(app)/client-detail/${person.id}`)}>
+						<Pressable onPress={() => router.push(`/(app)/(tabs)/clients/${person.id}`)}>
 							<Card>
 								<XStack justifyContent="space-between" alignItems="center">
 									<XStack alignItems="center" gap="$3" flex={1}>

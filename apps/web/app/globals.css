@@ -5,3 +5,57 @@
 body {
   font-family: system-ui, -apple-system, sans-serif;
 }
+
+/* Dark mode overrides for common patterns */
+.dark .bg-white {
+  background-color: rgb(31 41 55) !important; /* gray-800 */
+}
+
+.dark .border-gray-200 {
+  border-color: rgb(55 65 81) !important; /* gray-700 */
+}
+
+.dark .border-gray-100 {
+  border-color: rgb(55 65 81) !important;
+}
+
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(55 65 81) !important;
+}
+
+.dark .text-gray-900 {
+  color: rgb(243 244 246) !important; /* gray-100 */
+}
+
+.dark .text-gray-700 {
+  color: rgb(209 213 219) !important; /* gray-300 */
+}
+
+.dark .text-gray-600 {
+  color: rgb(156 163 175) !important; /* gray-400 */
+}
+
+.dark .text-gray-500 {
+  color: rgb(156 163 175) !important;
+}
+
+.dark .hover\:bg-gray-50:hover {
+  background-color: rgb(55 65 81) !important;
+}
+
+.dark .hover\:bg-gray-100:hover {
+  background-color: rgb(55 65 81) !important;
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: rgb(31 41 55);
+  border-color: rgb(75 85 99);
+  color: rgb(243 244 246);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: rgb(107 114 128);
+}

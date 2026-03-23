@@ -5,6 +5,7 @@ import { Card, Badge, Button } from "@therapysync/ui";
 import { usePayments, usePaymentSummary } from "@/hooks/usePayments";
 import { useAuthStore } from "@/lib/auth-store";
 import { useState } from "react";
+import { useThemeColors } from "@/lib/useThemeColors";
 
 const statusColors = {
 	pending: "warning",
@@ -22,6 +23,7 @@ function formatCurrency(cents: number, currency = "USD") {
 }
 
 export default function PaymentsScreen() {
+	const { bg } = useThemeColors();
 	const router = useRouter();
 	const role = useAuthStore((s) => s.dbUser?.role);
 	const [refreshing, setRefreshing] = useState(false);
@@ -50,11 +52,11 @@ export default function PaymentsScreen() {
 	const totalCount = summary?.reduce((acc, s) => acc + s.count, 0) ?? 0;
 
 	return (
-		<YStack flex={1} backgroundColor="$background">
+		<YStack flex={1} style={{ backgroundColor: bg }}>
 			<FlatList
 				data={paymentsList ?? []}
 				keyExtractor={(item) => item.id}
-				contentContainerStyle={{ padding: 16, gap: 12 }}
+				contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 100 }}
 				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
 				ListHeaderComponent={
 					<YStack gap="$3" marginBottom="$2">

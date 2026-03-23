@@ -6,8 +6,10 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { H3, Paragraph, XStack, YStack, Spinner } from "tamagui";
 import { Button, Input } from "@therapysync/ui";
 import { useSessionDetail, useUpdateSession } from "@/hooks/useSessions";
+import { useThemeColors } from "@/lib/useThemeColors";
 
 export default function EditSessionScreen() {
+	const { bg } = useThemeColors();
 	const { id } = useLocalSearchParams<{ id: string }>();
 	const router = useRouter();
 
@@ -64,7 +66,7 @@ export default function EditSessionScreen() {
 	};
 
 	return (
-		<ScrollView style={{ flex: 1, backgroundColor: "#fff" }}>
+		<ScrollView style={{ flex: 1, backgroundColor: bg }}>
 			<YStack padding="$4" gap="$4">
 				<H3>Edit Session</H3>
 

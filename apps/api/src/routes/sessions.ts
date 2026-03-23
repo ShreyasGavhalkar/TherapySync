@@ -76,18 +76,20 @@ sessionsRouter.post("/", async (c) => {
 	const therapistId = user.role === "therapist" ? user.id : parsed.therapistId;
 
 	// Expand recurring sessions into individual instances
+	// Format: "weekly:12" or "daily" (legacy)
 	const recurrenceRule = parsed.recurrenceRule;
 	const sessionValues = [{ ...parsed, therapistId }];
 
 	if (recurrenceRule && recurrenceRule !== "none") {
-		const count = recurrenceRule === "daily" ? 30 : recurrenceRule === "weekly" ? 12 : recurrenceRule === "biweekly" ? 12 : 6;
+		const [type, countStr] = recurrenceRule.split(":");
+		const count = countStr ? Number(countStr) : (type === "daily" ? 30 : type === "weekly" ? 12 : type === "biweekly" ? 12 : 6);
 		const duration = parsed.endTime.getTime() - parsed.startTime.getTime();
 
 		for (let i = 1; i < count; i++) {
 			let nextStart: Date;
-			if (recurrenceRule === "daily") nextStart = addDays(parsed.startTime, i);
-			else if (recurrenceRule === "weekly") nextStart = addWeeks(parsed.startTime, i);
-			else if (recurrenceRule === "biweekly") nextStart = addWeeks(parsed.startTime, i * 2);
+			if (type === "daily") nextStart = addDays(parsed.startTime, i);
+			else if (type === "weekly") nextStart = addWeeks(parsed.startTime, i);
+			else if (type === "biweekly") nextStart = addWeeks(parsed.startTime, i * 2);
 			else nextStart = addMonths(parsed.startTime, i);
 
 			sessionValues.push({

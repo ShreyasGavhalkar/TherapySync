@@ -1,5 +1,8 @@
 import { Tabs } from "expo-router";
+import { Platform, useColorScheme } from "react-native";
+import { BlurView } from "expo-blur";
 import { useAuthStore } from "@/lib/auth-store";
+import { useThemeStore } from "@/lib/theme-store";
 import {
 	Calendar,
 	Users,
@@ -12,13 +15,52 @@ import {
 
 export default function TabLayout() {
 	const role = useAuthStore((s) => s.dbUser?.role);
+	const systemScheme = useColorScheme();
+	const themeMode = useThemeStore((s) => s.mode);
+	const isDark = (themeMode === "system" ? systemScheme : themeMode) === "dark";
+
+	const bg = isDark ? "#111827" : "#F8F9FA";
+	const headerBg = isDark ? "#111827" : "#6C63FF";
+
+	// Use blur on iOS 13+, fallback to solid on older/Android
+	const supportsBlur = Platform.OS === "ios";
 
 	return (
 		<Tabs
 			screenOptions={{
 				tabBarActiveTintColor: "#6C63FF",
-				headerStyle: { backgroundColor: "#6C63FF" },
+				tabBarInactiveTintColor: isDark ? "#6B7280" : "#9CA3AF",
+				headerStyle: { backgroundColor: headerBg },
 				headerTintColor: "#fff",
+				sceneStyle: { backgroundColor: bg },
+				...(supportsBlur
+					? {
+							tabBarStyle: {
+								position: "absolute",
+								borderTopWidth: 0,
+								elevation: 0,
+								backgroundColor: "transparent",
+							},
+							tabBarBackground: () => (
+								<BlurView
+									tint={isDark ? "dark" : "light"}
+									intensity={80}
+									style={{
+										position: "absolute",
+										top: 0,
+										left: 0,
+										right: 0,
+										bottom: 0,
+									}}
+								/>
+							),
+						}
+					: {
+							tabBarStyle: {
+								backgroundColor: isDark ? "#1F2937" : "#FFFFFF",
+								borderTopColor: isDark ? "#374151" : "#E5E7EB",
+							},
+						}),
 			}}
 		>
 			{/* Admin-only: Dashboard */}

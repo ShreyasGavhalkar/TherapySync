@@ -7,8 +7,10 @@ import { useDiscoverTherapists } from "@/hooks/useDiscover";
 import { useClients } from "@/hooks/useClients";
 import { Star } from "@tamagui/lucide-icons";
 import { useMemo } from "react";
+import { useThemeColors } from "@/lib/useThemeColors";
 
 export default function DiscoverScreen() {
+	const { bg } = useThemeColors();
 	const router = useRouter();
 	const [city, setCity] = useState("");
 	const [refreshing, setRefreshing] = useState(false);
@@ -33,7 +35,7 @@ export default function DiscoverScreen() {
 	};
 
 	return (
-		<YStack flex={1} backgroundColor="$background">
+		<YStack flex={1} style={{ backgroundColor: bg }}>
 			<YStack padding="$4" paddingBottom="$2">
 				<Input
 					placeholder="Search by city..."
@@ -50,7 +52,7 @@ export default function DiscoverScreen() {
 				<FlatList
 					data={filteredTherapists}
 					keyExtractor={(item) => item.id}
-					contentContainerStyle={{ padding: 16, gap: 12 }}
+					contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 100 }}
 					refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
 					ListEmptyComponent={
 						<YStack padding="$6" alignItems="center">
